@@ -9,17 +9,13 @@ logfire.configure()
 logfire.instrument_pydantic_ai()
 
 
-rag_query_agent = Agent[Query, str](
-    'openai:gpt-4o',
-    instructions='''
-    You just answer questions
-    '''
-)
-
+def build_rag_query_agent(prompt_text: str) -> Agent[Query, str]:
+    return Agent[Query, str](
+        "openai:gpt-4o",
+        instructions=prompt_text,
+    )
 
 async def query_rag_query_agent(query: Query):
-    """
-    Query the article writer agent with a subject or title.
-    """
-    result = await rag_query_agent.run(query.query)
+    agent = build_rag_query_agent(query.instructions)
+    result = await agent.run(query.query)
     return result

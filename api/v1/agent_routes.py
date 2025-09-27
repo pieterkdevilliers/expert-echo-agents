@@ -13,8 +13,10 @@ async def rag_query(query: Query, authorized: bool = Depends(auth.verify_api_key
     Accepts a query payload, runs it through the AI agent, and returns the response.
     """
     print("Auth Status: ", authorized)
-    if not query:
+    if not query.query:
         raise HTTPException(status_code=400, detail="Missing 'query' field")
     response = await rag_agent.query_rag_query_agent(query=query)
     # result = await agent.run(query)
     return {"response": response}
+
+
