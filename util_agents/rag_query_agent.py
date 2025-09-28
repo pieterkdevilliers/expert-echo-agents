@@ -9,13 +9,29 @@ logfire.configure()
 logfire.instrument_pydantic_ai()
 
 
-def build_rag_query_agent(prompt_text: str) -> Agent[Query, str]:
-    return Agent[Query, str](
+async def query_rag_query_agent(query: Query):
+    # Build agent with session-specific instructions
+    agent = Agent[str, str](
         "openai:gpt-4o",
-        instructions=prompt_text,
+        instructions=query.prompt,
     )
 
-async def query_rag_query_agent(query: Query):
-    agent = build_rag_query_agent(query.instructions)
-    result = await agent.run(query.query)
+    # Flatten history into a string
+    history_text = "\n".join(
+        f"{msg['sender']}: {msg['message']}"
+        for msg in query.chat_history
+    )
+
+    # Construct the full input
+    full_input = f"""
+    Chat history so far:
+    {history_text}
+
+    Now the user asks:
+    {query.query}
+    """
+
+    # Run the agent
+    result = await agent.run(full_input)
+
     return result
