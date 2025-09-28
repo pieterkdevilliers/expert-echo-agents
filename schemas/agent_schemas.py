@@ -9,6 +9,7 @@ class Query(BaseModel):
     query: str
     prompt: str
     visitor_email: str
+    visitor_uuid: str
     account_unique_id: str
     chat_history: List[Dict[str, Any]]
     relevance_score: float
