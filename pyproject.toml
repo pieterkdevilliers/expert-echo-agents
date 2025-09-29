@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [
     { name = "Pieter K de Villiers", email = "pieter@hey.com" }
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 dependencies = [
     "aiosqlite>=0.21.0",
     "fastapi>=0.117.1",
@@ -15,6 +15,7 @@ dependencies = [
     "pydantic-settings>=2.11.0",
     "sqlmodel>=0.0.25",
     "uvicorn>=0.37.0",
+    "chromadb", # ← add here
 ]
 
 [project.scripts]
@@ -23,3 +24,4 @@ expert-echo-agents = "expert_echo_agents:main"
 [build-system]
 requires = ["uv_build>=0.8.22,<0.9.0"]
 build-backend = "uv_build"
+

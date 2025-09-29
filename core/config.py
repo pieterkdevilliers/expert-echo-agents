@@ -16,6 +16,14 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str
     AI_API_KEY: str
     dev_key: str
+    ENVIRONMENT: str
+    CHAT_MODEL_NAME:str
+    CHROMA_AUTH_TOKEN_TRANSPORT_HEADER: str
+    CHROMA_ENDPOINT: str
+    CHROMA_SERVER_AUTHN_CREDENTIALS: str
+    CHROMA_SERVER_AUTHN_PROVIDER: str
+    CHROMA_DEV_MODE: bool
+    OPENAI_CHAT_MODEL: str
 
     class Config:
         """
