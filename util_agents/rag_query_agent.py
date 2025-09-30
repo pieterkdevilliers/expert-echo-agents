@@ -3,6 +3,7 @@ import os
 import shared_utils.query_source_data as rag_agent
 from pydantic_ai import Agent
 from schemas.agent_schemas import Query
+from core.config import settings
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -25,7 +26,7 @@ async def query_rag_query_agent(query: Query):
     manager = rag_agent.ChromaDBManager(
         environment=ENVIRONMENT,
         chroma_endpoint=CHROMA_ENDPOINT,
-        headers={}
+        headers=settings.headers,
     )
 
     prepared_db = manager.get_or_create_collection(

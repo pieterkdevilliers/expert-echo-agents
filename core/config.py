@@ -27,5 +27,10 @@ class Settings(BaseSettings):
         """
         env_file = ".env"
 
+    headers = {
+    'X-Chroma-Token': CHROMA_SERVER_AUTHN_CREDENTIALS,
+    'Content-Type': 'application/json'
+}
+
 
 settings = Settings()
