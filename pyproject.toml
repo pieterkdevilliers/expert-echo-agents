@@ -16,6 +16,7 @@ dependencies = [
     "sqlmodel>=0.0.25",
     "uvicorn>=0.37.0",
     "chromadb", # ← add here
+    "gunicorn",
 ]
 
 [project.scripts]
