@@ -25,3 +25,5 @@ expert-echo-agents = "expert_echo_agents:main"
 # requires = ["uv_build>=0.8.22,<0.9.0"]
 # build-backend = "uv_build"
 
+[tool.uv.dependencies]
+gunicorn = "^22.0.0"
