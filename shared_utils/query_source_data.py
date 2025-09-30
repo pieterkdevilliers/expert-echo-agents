@@ -283,7 +283,7 @@ def search_db_advanced(
         )
 
     # 5️⃣ Create AI agent
-    model = OpenAIChatModel(CHAT_MODEL_NAME, temperature=temperature)
+    model = OpenAIChatModel(CHAT_MODEL_NAME)
     agent = Agent(
         model=model,
         result_type=DetailedSearchResponse,
