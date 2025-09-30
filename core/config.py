@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     CHROMA_SERVER_AUTHN_PROVIDER: str
     CHROMA_DEV_MODE: bool
     OPENAI_CHAT_MODEL: str
+    LOGFIRE_ENABLED: bool
 
     class Config:
         """

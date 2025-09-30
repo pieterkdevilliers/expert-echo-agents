@@ -7,8 +7,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-logfire.configure()  
-logfire.instrument_pydantic_ai()
+if os.getenv("LOGFIRE_ENABLED", "false").lower() == "true":
+    logfire.configure()
+    logfire.instrument_pydantic_ai()
 
 CHROMA_ENDPOINT = os.environ.get('CHROMA_ENDPOINT')
 ENVIRONMENT = os.environ.get('ENVIRONMENT')
