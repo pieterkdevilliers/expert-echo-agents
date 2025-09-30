@@ -216,68 +216,51 @@ def search_db_advanced(
     visitor_email: str, 
     chat_history=None, 
     prompt_text=None, 
-    temperature=0.2
+    temperature=0.2,
+    scoreapp_report_text={},
+    user_products_prompt=""
 ) -> Union[str, DetailedSearchResponse]:
     """
     Advanced search with structured response using Pydantic AI
+    Handles local and remote Chroma collections.
     """
     print(f"Relevant score: {relevance_score}")
     print(f"k value: {k_value}")
     print(f"Type of db: {type(db)}")
     print(f"Temperature: {temperature}")
-    
-    # Handle different environments
-    if ENVIRONMENT == 'development':
-        # db is a ChromaDB Collection object
+
+    # 1️⃣ Local environment
+    if ENVIRONMENT == 'development' and isinstance(db, chromadb.Collection):
         results = db.query(
             query_texts=[query],
             n_results=k_value,
             include=["metadatas", "documents", "distances"]
         )
-        
-        # Check relevance scores (distances in ChromaDB are inverse of similarity)
-        if not results['documents'][0] or (results['distances'][0] and results['distances'][0][0] > (1 - relevance_score)):
+        if not results['documents'][0]:
             return f"Unable to find matching results for: {query}"
-            
-    else:
-        # Remote ChromaDB handling
-        print('******CHROMA_ENDPOINT: ', CHROMA_ENDPOINT)
-        try:
-            client = chromadb.HttpClient(
-                host=CHROMA_ENDPOINT, 
-                headers=headers
-            )
-            collection_name = f'collection-{account_unique_id}'
-        
-            
-            # Fetch collection
-            collection = client.get_collection(name=collection_name)
 
-            # Query the collection
-            results = collection.query(
-                query_texts=[query],
-                n_results=k_value,
-                include=["metadatas", "documents", "distances"]
-            )
-            
+    # 2️⃣ Remote environment (db is a dict)
+    elif isinstance(db, dict) and db.get("type") == "remote":
+        try:
+            # Use the helper to query remote collection
+            results = ChromaDBManager.query_remote_collection(db, [query], n_results=k_value)
         except Exception as e:
             print(f"Error querying remote ChromaDB: {e}")
             return f"Database connection error: {str(e)}"
 
-    # Log the results to inspect the structure
-    print(f"Query results: {results}")
+    else:
+        return "Invalid database object provided."
 
-    # Extract documents and metadata
+    # 3️⃣ Extract documents and metadata
     documents = results.get("documents", [[]])[0]
     metadatas = results.get("metadatas", [[]])[0]
-    
+
     if not documents:
         return f"Unable to find matching results for: {query}"
 
-    # Create context text from documents
+    # 4️⃣ Build context and chat history
     context_text = "\n\n---\n\n".join(doc for doc in documents)
 
-    # Build chat history text
     history_text = ""
     if chat_history:
         history_text = "\n".join(
@@ -286,50 +269,44 @@ def search_db_advanced(
             for msg in chat_history
         )
 
-    # Create Pydantic AI agent
+    # 5️⃣ Create AI agent
     model = OpenAIChatModel(CHAT_MODEL_NAME, temperature=temperature)
     agent = Agent(
         model=model,
         result_type=DetailedSearchResponse,
         system_prompt=f"""You are a helpful assistant that provides structured responses to user queries.
-        Analyze the provided context and respond with:
-        1. A helpful answer to the question  
-        2. An assessment of how well the context matches the query
-        3. Whether you used the provided context in your response
-        
-        Be honest about the limitations of your knowledge based on the provided context.
-        
-        Chat History:
-        {history_text}
-        
-        Context from knowledge base:
-        {context_text}
-        
-        ScoreApp Report:
-        {scoreapp_report_text}
-        
-        User Products:
-        {user_products_prompt}
-        
-        Additional Instructions:
-        {prompt_text or ""}
-        
-        Question: {query}
-        
-        Please provide a helpful response based on the context provided above."""
+            Analyze the provided context and respond with:
+            1. A helpful answer to the question  
+            2. An assessment of how well the context matches the query
+            3. Whether you used the provided context in your response
 
-        )
+            Chat History:
+            {history_text}
 
+            Context from knowledge base:
+            {context_text}
+
+            ScoreApp Report:
+            {scoreapp_report_text}
+
+            User Products:
+            {user_products_prompt}
+
+            Additional Instructions:
+            {prompt_text or ""}
+
+            Question: {query}
+
+            Please provide a helpful response based on the context provided above."""
+    )
+
+    # 6️⃣ Run agent and attach sources
     try:
         result = agent.run_sync(query)
         response = result.data
-        
-        # Add the sources from our search
         response.sources = [meta.get("source", None) for meta in metadatas[:sources_returned]]
         response.query = query
-        
         return response
-        
     except Exception as e:
         print(f"Error generating structured response: {e}")
         return f"Error generating response: {str(e)}"
