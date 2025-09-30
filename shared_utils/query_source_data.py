@@ -288,7 +288,7 @@ async def search_db_advanced(
     agent = Agent(
         model=model,
         system_prompt=f"""You are a helpful assistant that provides structured responses to user queries.
-            Analyze the provided context and respond with a helpful answer to the question.  
+            Analyze the provided context and respond with a helpful answer to the question. 
 
             Chat History:
             {history_text}
@@ -309,9 +309,11 @@ async def search_db_advanced(
 
             Please provide a helpful response based on the context provided above."""
     )
+    
 
     # 6️⃣ Run agent asynchronously
     try:
+        print('system prompt: ', agent.system_prompt)
         result = await agent.run(query)
         print("result:", result)
 
