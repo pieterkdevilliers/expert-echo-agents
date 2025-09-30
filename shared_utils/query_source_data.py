@@ -237,7 +237,7 @@ async def search_db_advanced(
     print(f"k value: {k_value}")
     print(f"Type of db: {type(db)}")
     print(f"Temperature: {temperature}")
-    print('query.chat_history: ', query.chat_history)
+    print('chat_history: ', chat_history)
 
     # 1️⃣ Local environment
     if ENVIRONMENT == 'development' and isinstance(db, chromadb.Collection):
