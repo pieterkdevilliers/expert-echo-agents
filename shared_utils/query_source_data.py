@@ -16,12 +16,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 CHAT_MODEL_NAME = os.environ.get('OPENAI_CHAT_MODEL')
-print(f"Using OpenAI chat model: {CHAT_MODEL_NAME}")
-
 CHROMA_PATH = "chroma"
 ENVIRONMENT = os.environ.get('ENVIRONMENT')
-
-# Chroma API endpoint and credentials
 CHROMA_ENDPOINT = os.environ.get('CHROMA_ENDPOINT')
 CHROMA_SERVER_AUTHN_CREDENTIALS = os.environ.get('CHROMA_SERVER_AUTHN_CREDENTIALS')
 
@@ -129,20 +125,16 @@ class ChromaDBManager:
                 name=collection_name,
                 embedding_function=embedding_function
             )
-            print(f"Retrieved existing local collection: {collection_name}")
         except Exception:
             collection = client.create_collection(
                 name=collection_name,
                 embedding_function=embedding_function
             )
-            print(f"Created new local collection: {collection_name}")
-        print('Collection Returned: ', collection)
         return collection
     
     def _handle_remote_collection(self, account_unique_id: str):
         """Handle remote ChromaDB collection via Render-hosted API"""
         collection_name = f"collection-{account_unique_id}"
-        print("collection_name: ", collection_name)
 
         # Step 1: Fetch all collections from remote server
         collections_url = f"{self.chroma_endpoint}/collections"
@@ -165,7 +157,7 @@ class ChromaDBManager:
             resp = requests.post(create_url, json=payload, headers=self.headers)
             resp.raise_for_status()
             collection_id = resp.json()["id"]
-            print(f"Created remote collection: {collection_name} (id={collection_id})")
+
         else:
             print(f"Found remote collection: {collection_name} (id={collection_id})")
 
@@ -233,11 +225,6 @@ async def search_db_advanced(
     Advanced search with structured response using Pydantic AI
     Handles local and remote Chroma collections.
     """
-    print(f"Relevant score: {relevance_score}")
-    print(f"k value: {k_value}")
-    print(f"Type of db: {type(db)}")
-    print(f"Temperature: {temperature}")
-    print('chat_history: ', chat_history)
 
     # 1️⃣ Local environment
     if ENVIRONMENT == 'development' and isinstance(db, chromadb.Collection):
@@ -258,7 +245,6 @@ async def search_db_advanced(
                 n_results=k_value
             )
         except Exception as e:
-            print(f"Error querying remote ChromaDB: {e}")
             return f"Database connection error: {str(e)}"
     else:
         return "Invalid database object provided."
@@ -345,9 +331,7 @@ SCOREAPP REPORT:
 
     # 6️⃣ Run agent asynchronously
     try:
-        print('system prompt: ', agent.system_prompt)
         result = await agent.run(query)
-        print("result:", result)
 
         # Build structured response
         response = DetailedSearchResponse(
@@ -360,5 +344,4 @@ SCOREAPP REPORT:
 
         return response
     except Exception as e:
-        print(f"Error generating structured response: {e}")
         return f"Error generating response: {str(e)}"
