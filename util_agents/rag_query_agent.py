@@ -1,4 +1,6 @@
 import logfire
+import os
+import shared_utils.query_source_data as rag_agent
 from pydantic_ai import Agent
 from schemas.agent_schemas import Query
 from dotenv import load_dotenv
@@ -8,30 +10,26 @@ load_dotenv()
 logfire.configure()  
 logfire.instrument_pydantic_ai()
 
+CHROMA_ENDPOINT = os.environ.get('CHROMA_ENDPOINT')
+ENVIRONMENT = os.environ.get('ENVIRONMENT')
+
+embedding_manager = rag_agent.OpenAIEmbeddingManager()
+
 
 async def query_rag_query_agent(query: Query):
-    # Build agent with session-specific instructions
-    agent = Agent[str, str](
-        "openai:gpt-4o",
-        instructions=query.prompt,
-    )
-
-    # Flatten history into a string
-    history_text = "\n".join(
-        f"{msg['sender']}: {msg['message']}"
-        for msg in query.chat_history
-    )
-
-    # Construct the full input
-    full_input = f"""
-    Chat history so far:
-    {history_text}
-
-    Now the user asks:
-    {query.query}
     """
+    Run a RAG query on the ChromaDB
+    """
+    manager = rag_agent.ChromaDBManager(
+        environment=ENVIRONMENT,
+        chroma_endpoint=CHROMA_ENDPOINT,
+        headers={}
+    )
 
-    # Run the agent
-    result = await agent.run(full_input)
+    prepared_db = manager.get_or_create_collection(
+        query.account_unique_id,
+        embedding_manager
+    )
 
-    return result
+    print("prepared_db:", prepared_db)
+    return prepared_db

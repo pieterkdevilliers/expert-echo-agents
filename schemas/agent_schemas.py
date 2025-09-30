@@ -17,3 +17,5 @@ class Query(BaseModel):
     sources_returned: int
     temperature: float
     chat_session_id: str
+    scoreapp_report_text: Dict
+    user_products_prompt: str
