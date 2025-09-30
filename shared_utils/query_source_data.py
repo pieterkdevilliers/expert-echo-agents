@@ -107,12 +107,11 @@ class ChromaDBManager:
     def __init__(self, environment: str, chroma_endpoint: str = None, headers: dict = None):
         self.environment = environment
         self.chroma_endpoint = chroma_endpoint
-        self.headers = headers
-        
+        self.headers = headers or {}
+
     def get_or_create_collection(self, account_unique_id: str, embedding_function=None):
         """Get or create a collection based on environment"""
-        
-        if ENVIRONMENT == 'development':
+        if self.environment == "development":
             return self._handle_local_collection(account_unique_id, embedding_function)
         else:
             return self._handle_remote_collection(account_unique_id)
@@ -141,39 +140,57 @@ class ChromaDBManager:
         return collection
     
     def _handle_remote_collection(self, account_unique_id: str):
-        """Handle remote ChromaDB collection"""
+        """Handle remote ChromaDB collection via Render-hosted API"""
         collection_name = f"collection-{account_unique_id}"
-        print('collection_name: ', collection_name)
-        print('headers: ', self.headers)
-        
-        # Check if collection exists
-        try:
-            response = requests.get(
-                f'{self.chroma_endpoint}/collections/{collection_name}',
-                headers=self.headers,
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                return {
-                    'type': 'remote',
-                    'collection_name': collection_name,
-                    'endpoint': self.chroma_endpoint,
-                    'headers': self.headers,
-                    'exists': True
-                }
-            else:
-                return {
-                    'type': 'remote',
-                    'collection_name': collection_name,
-                    'endpoint': self.chroma_endpoint,
-                    'headers': self.headers,
-                    'exists': False
-                }
-                
-        except requests.RequestException as e:
-            print(f"Error accessing remote collection: {e}")
-            raise
+        print("collection_name: ", collection_name)
+        print("headers: ", self.headers)
+
+        # Step 1: Fetch all collections from remote server
+        collections_url = f"{self.chroma_endpoint}/collections"
+        resp = requests.get(collections_url, headers=self.headers)
+        if resp.status_code != 200:
+            raise RuntimeError(f"Error fetching collections: {resp.text}")
+        collections = resp.json()
+
+        # Step 2: Find the collection ID by name
+        collection_id = None
+        for col in collections:
+            if col["name"] == collection_name:
+                collection_id = col["id"]
+                break
+
+        if not collection_id:
+            # Optionally, create the collection if it doesn't exist
+            create_url = f"{self.chroma_endpoint}/collections"
+            payload = {"name": collection_name}
+            resp = requests.post(create_url, json=payload, headers=self.headers)
+            resp.raise_for_status()
+            collection_id = resp.json()["id"]
+            print(f"Created remote collection: {collection_name} (id={collection_id})")
+        else:
+            print(f"Found remote collection: {collection_name} (id={collection_id})")
+
+        # Step 3: Return a dict representing the "collection"
+        return {
+            "type": "remote",
+            "collection_name": collection_name,
+            "collection_id": collection_id,
+            "endpoint": self.chroma_endpoint,
+            "headers": self.headers,
+            "exists": True,
+        }
+    
+    def query_remote_collection(self, collection_dict, queries, n_results=7):
+        """Query a remote collection"""
+        collection_id = collection_dict["collection_id"]
+        url = f"{collection_dict['endpoint']}/collections/{collection_id}/query"
+        payload = {
+            "queries": queries,
+            "n_results": n_results
+        }
+        resp = requests.post(url, json=payload, headers=collection_dict["headers"])
+        resp.raise_for_status()
+        return resp.json()
 
 
 
