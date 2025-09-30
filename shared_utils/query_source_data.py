@@ -179,14 +179,17 @@ class ChromaDBManager:
             "exists": True,
         }
     
-    def query_remote_collection(self, collection_dict, queries, n_results=7):
+    def query_remote_collection(self, collection_dict, queries, n_results=7, include=None):
         """Query a remote collection"""
         collection_id = collection_dict["collection_id"]
         url = f"{collection_dict['endpoint']}/collections/{collection_id}/query"
+        
         payload = {
-            "queries": queries,
-            "n_results": n_results
+            "query_texts": queries,  # <--- correct field name
+            "n_results": n_results,
+            "include": include or ["documents", "metadatas", "distances"]
         }
+        
         resp = requests.post(url, json=payload, headers=collection_dict["headers"])
         resp.raise_for_status()
         return resp.json()
@@ -244,7 +247,11 @@ def search_db_advanced(
     elif isinstance(db, dict) and db.get("type") == "remote":
         try:
             # Use the helper to query remote collection
-            results = manager.query_remote_collection(db, [query], n_results=k_value)
+            results = manager.query_remote_collection(
+                                                db,
+                                                [query],
+                                                n_results=k_value
+                                            )
         except Exception as e:
             print(f"Error querying remote ChromaDB: {e}")
             return f"Database connection error: {str(e)}"
