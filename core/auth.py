@@ -7,12 +7,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 ENVIRONMENT = os.environ.get('ENVIRONMENT')
-print('ENVIRONMENT: ', ENVIRONMENT)
 if ENVIRONMENT == 'development':
     API_KEY = settings.dev_key
 
 else: API_KEY = settings.AI_API_KEY
-print("api_key: ", API_KEY)
 
 
 def verify_api_key(x_api_key: str = Header(...)):
