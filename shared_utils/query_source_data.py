@@ -314,7 +314,7 @@ def search_db_advanced(
 
     # 6️⃣ Run agent and attach sources
     try:
-        result = agent.run_sync(query)
+        result = agent.run(query)
         response = result.data
         response.sources = [meta.get("source", None) for meta in metadatas[:sources_returned]]
         response.query = query
