@@ -143,7 +143,6 @@ class ChromaDBManager:
         """Handle remote ChromaDB collection via Render-hosted API"""
         collection_name = f"collection-{account_unique_id}"
         print("collection_name: ", collection_name)
-        print("headers: ", self.headers)
 
         # Step 1: Fetch all collections from remote server
         collections_url = f"{self.chroma_endpoint}/collections"
@@ -249,6 +248,7 @@ def search_db_advanced(
             )
             collection_name = f'collection-{account_unique_id}'
             print(f"Collection name: {collection_name}")
+            print('CHROMA_ENDPOINT: ', CHROMA_ENDPOINT)
             
             # Fetch collection
             collection = client.get_collection(name=collection_name)
