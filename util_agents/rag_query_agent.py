@@ -39,6 +39,7 @@ async def query_rag_query_agent(query: Query):
         embedding_manager
     )
     search_result = rag_agent.search_db_advanced(
+        manager=manager,
         db=prepared_db,
         query=query.query,
         relevance_score=query.relevance_score,
