@@ -287,10 +287,7 @@ async def search_db_advanced(
     agent = Agent(
         model=model,
         system_prompt=f"""You are a helpful assistant that provides structured responses to user queries.
-            Analyze the provided context and respond with:
-            1. A helpful answer to the question  
-            2. An assessment of how well the context matches the query
-            3. Whether you used the provided context in your response
+            Analyze the provided context and respond with a helpful answer to the question.  
 
             Chat History:
             {history_text}
