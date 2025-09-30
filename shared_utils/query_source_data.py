@@ -179,15 +179,20 @@ class ChromaDBManager:
             "exists": True,
         }
     
-    def query_remote_collection(self, collection_dict, queries, n_results=7, include=None):
-        """Query a remote collection"""
+    def query_remote_collection(self, collection_dict, queries: List[str], n_results=7, include=None):
+        """Query a remote collection using embeddings"""
         collection_id = collection_dict["collection_id"]
         url = f"{collection_dict['endpoint']}/collections/{collection_id}/query"
         
+        # Embed the queries
+        embeddings = embedding_manager.embed_query(queries[0]) if len(queries) == 1 else embedding_manager.embed_documents(queries)
+        
         payload = {
-            "query_texts": queries,  # <--- correct field name
+            "query_embeddings": embeddings,
             "n_results": n_results,
-            "include": include or ["documents", "metadatas", "distances"]
+            "include": include or ["documents", "metadatas", "distances"],
+            "where": {},  # optional filters
+            "where_document": {}  # optional filters
         }
         
         resp = requests.post(url, json=payload, headers=collection_dict["headers"])
