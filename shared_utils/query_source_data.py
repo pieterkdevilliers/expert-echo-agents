@@ -331,7 +331,9 @@ SCOREAPP REPORT:
 
     # 6️⃣ Run agent asynchronously
     try:
-        result = await agent.run(query)
+        result = await agent.run(
+            query,
+            model_settings={"temperature": temperature})
 
         # Build structured response
         response = DetailedSearchResponse(
