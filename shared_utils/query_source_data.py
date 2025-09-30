@@ -149,7 +149,7 @@ class ChromaDBManager:
         # Check if collection exists
         try:
             response = requests.get(
-                f'{self.chroma_endpoint}/api/v1/collections/{collection_name}',
+                f'{self.chroma_endpoint}/collections/{collection_name}',
                 headers=self.headers,
                 timeout=30
             )
