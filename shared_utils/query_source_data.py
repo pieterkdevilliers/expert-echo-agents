@@ -241,14 +241,15 @@ def search_db_advanced(
             
     else:
         # Remote ChromaDB handling
+        print(f"Collection name: {collection_name}")
+        print('******CHROMA_ENDPOINT: ', CHROMA_ENDPOINT)
         try:
             client = chromadb.HttpClient(
                 host=CHROMA_ENDPOINT, 
                 headers=headers
             )
             collection_name = f'collection-{account_unique_id}'
-            print(f"Collection name: {collection_name}")
-            print('******CHROMA_ENDPOINT: ', CHROMA_ENDPOINT)
+        
             
             # Fetch collection
             collection = client.get_collection(name=collection_name)
