@@ -248,7 +248,7 @@ def search_db_advanced(
             )
             collection_name = f'collection-{account_unique_id}'
             print(f"Collection name: {collection_name}")
-            print('CHROMA_ENDPOINT: ', CHROMA_ENDPOINT)
+            print('******CHROMA_ENDPOINT: ', CHROMA_ENDPOINT)
             
             # Fetch collection
             collection = client.get_collection(name=collection_name)
