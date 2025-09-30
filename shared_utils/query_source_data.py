@@ -286,7 +286,6 @@ def search_db_advanced(
     model = OpenAIChatModel(CHAT_MODEL_NAME)
     agent = Agent(
         model=model,
-        result_type=DetailedSearchResponse,
         system_prompt=f"""You are a helpful assistant that provides structured responses to user queries.
             Analyze the provided context and respond with:
             1. A helpful answer to the question  
