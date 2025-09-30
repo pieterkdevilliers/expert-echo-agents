@@ -250,8 +250,10 @@ def search_db_advanced(
             collection_name = f'collection-{account_unique_id}'
             print(f"Collection name: {collection_name}")
             
+            # Fetch collection
             collection = client.get_collection(name=collection_name)
 
+            # Query the collection
             results = collection.query(
                 query_texts=[query],
                 n_results=k_value,
