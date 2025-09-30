@@ -107,7 +107,7 @@ class ChromaDBManager:
     def __init__(self, environment: str, chroma_endpoint: str = None, headers: dict = None):
         self.environment = environment
         self.chroma_endpoint = chroma_endpoint
-        self.headers = headers or {}
+        self.headers = headers
         
     def get_or_create_collection(self, account_unique_id: str, embedding_function=None):
         """Get or create a collection based on environment"""
