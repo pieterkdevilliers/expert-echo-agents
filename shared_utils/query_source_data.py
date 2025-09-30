@@ -277,9 +277,9 @@ def search_db_advanced(
     history_text = ""
     if chat_history:
         history_text = "\n".join(
-            f"{(msg.sender_type if hasattr(msg, 'sender_type') else msg['sender_type']).capitalize()}: "
-            f"{(msg.message_text if hasattr(msg, 'message_text') else msg['message_text'])}"
-            for msg in chat_history
+            f"{(getattr(msg, 'sender_type', msg.get('sender_type', 'User'))).capitalize()}: "
+            f"{getattr(msg, 'message_text', msg.get('message_text', ''))}"
+            for msg in chat_history or []
         )
 
     # 5️⃣ Create AI agent
