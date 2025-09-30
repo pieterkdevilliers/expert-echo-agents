@@ -244,17 +244,13 @@ def search_db_advanced(
         # Remote ChromaDB handling
         try:
             client = chromadb.HttpClient(
-                host='https://fastapi-rag-chroma.onrender.com', 
-                port=8000, 
+                host=CHROMA_ENDPOINT, 
                 headers=headers
             )
             collection_name = f'collection-{account_unique_id}'
             print(f"Collection name: {collection_name}")
             
-            collection = client.get_collection(
-                name=collection_name, 
-                embedding_function=embedding_manager
-            )
+            collection = client.get_collection(name=collection_name)
 
             results = collection.query(
                 query_texts=[query],
