@@ -46,35 +46,53 @@ def get_openai_embeddings(texts: List[str], model: str = "text-embedding-3-small
     return [embedding.embedding for embedding in response.data]
 
 
-# Alternative: Using a wrapper class for better organization
 class OpenAIEmbeddingManager:
     def __init__(self, model: str = "text-embedding-3-small"):
         self.model = model
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self._dimension = None
-    
-    def embed_documents(self, texts: List[str]) -> List[List[float]]:
-        """Embed a list of documents"""
+
+    # ✅ Required Chroma interface for batch embeddings
+    def __call__(self, input: List[str]) -> List[List[float]]:
+        """
+        Embed a batch of texts.
+        Chroma calls this for documents or queries.
+        """
+        # Ensure all inputs are strings
+        input = [str(i) for i in input]
+
         response = self.client.embeddings.create(
-            input=texts,
+            input=input,
             model=self.model
         )
-        embeddings = [embedding.embedding for embedding in response.data]
-        
+        embeddings = [e.embedding for e in response.data]
+
         if self._dimension is None and embeddings:
             self._dimension = len(embeddings[0])
-            
+
         return embeddings
-    
-    def embed_query(self, text: str) -> List[float]:
-        """Embed a single query"""
-        return self.embed_documents([text])[0]
-    
+
+    # ✅ Helper for multiple documents
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        return self.__call__(texts)
+
+    # ✅ Helper for single query, Chroma-compatible signature
+    def embed_query(self, input: str, **kwargs) -> List[List[float]]:
+        """
+        Embed a single query in batch format (Chroma expects list of lists)
+        """
+        return self.__call__([str(input)])  # returns List[List[float]]
+
+    # ✅ Retrieve embedding dimension
     def get_dimension(self) -> int:
         if self._dimension is None:
-            dummy = self.embed_documents(["dummy"])
+            dummy = self.__call__(["dummy"])
             self._dimension = len(dummy[0])
         return self._dimension
+
+    # ✅ Name used by Chroma to avoid embedding function conflicts
+    def name(self) -> str:
+        return f"openai-{self.model}"
 
 
 embedding_manager = OpenAIEmbeddingManager()
@@ -119,7 +137,7 @@ class ChromaDBManager:
                 embedding_function=embedding_function
             )
             print(f"Created new local collection: {collection_name}")
-        
+        print('Collection Returned: ', collection)
         return collection
     
     def _handle_remote_collection(self, account_unique_id: str):
@@ -178,7 +196,6 @@ def search_db_advanced(
     sources_returned: int, 
     account_unique_id: str, 
     visitor_email: str, 
-    session, 
     chat_history=None, 
     prompt_text=None, 
     temperature=0.2
@@ -217,7 +234,7 @@ def search_db_advanced(
             
             collection = client.get_collection(
                 name=collection_name, 
-                embedding_function=embedding_function
+                embedding_function=embedding_manager
             )
 
             results = collection.query(

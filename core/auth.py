@@ -1,8 +1,13 @@
 import os
 from fastapi import Header, HTTPException
 from core.config import settings
+from dotenv import load_dotenv
+
+
+load_dotenv()
 
 ENVIRONMENT = os.environ.get('ENVIRONMENT')
+print('ENVIRONMENT: ', ENVIRONMENT)
 if ENVIRONMENT == 'development':
     API_KEY = settings.dev_key
 
