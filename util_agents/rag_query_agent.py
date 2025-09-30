@@ -15,6 +15,11 @@ else:
 
 CHROMA_ENDPOINT = os.environ.get('CHROMA_ENDPOINT')
 ENVIRONMENT = os.environ.get('ENVIRONMENT')
+CHROMA_SERVER_AUTHN_CREDENTIALS = os.environ.get('CHROMA_SERVER_AUTHN_CREDENTIALS')
+headers = {
+    'X-Chroma-Token': CHROMA_SERVER_AUTHN_CREDENTIALS,
+    'Content-Type': 'application/json'
+}
 
 embedding_manager = rag_agent.OpenAIEmbeddingManager()
 
@@ -26,7 +31,7 @@ async def query_rag_query_agent(query: Query):
     manager = rag_agent.ChromaDBManager(
         environment=ENVIRONMENT,
         chroma_endpoint=CHROMA_ENDPOINT,
-        headers=settings.headers,
+        headers=headers,
     )
 
     prepared_db = manager.get_or_create_collection(
