@@ -38,7 +38,7 @@ async def query_rag_query_agent(query: Query):
         query.account_unique_id,
         embedding_manager
     )
-    search_result = rag_agent.search_db_advanced(
+    search_result = await rag_agent.search_db_advanced(
         manager=manager,
         db=prepared_db,
         query=query.query,
