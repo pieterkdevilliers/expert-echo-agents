@@ -9,6 +9,7 @@ load_dotenv()
 
 if os.getenv("LOGFIRE_ENABLED", "false").lower() == "true":
     logfire.configure()
+else:
     logfire.instrument_pydantic_ai()
 
 CHROMA_ENDPOINT = os.environ.get('CHROMA_ENDPOINT')
@@ -31,6 +32,18 @@ async def query_rag_query_agent(query: Query):
         query.account_unique_id,
         embedding_manager
     )
-
+    search_result = rag_agent.search_db_advanced(
+        db=prepared_db,
+        query=query.query,
+        relevance_score=query.relevance_score,
+        k_value=query.k_value,
+        sources_returned=query.sources_returned,
+        account_unique_id=query.account_unique_id,
+        visitor_email=query.visitor_email,
+        chat_history=query.chat_history,
+        prompt_text=query.prompt,
+        temperature=query.temperature)
+    
     print("prepared_db:", prepared_db)
-    return prepared_db
+    print('search_result: ', search_result)
+    return search_result
