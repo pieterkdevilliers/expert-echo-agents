@@ -241,7 +241,6 @@ def search_db_advanced(
             
     else:
         # Remote ChromaDB handling
-        print(f"Collection name: {collection_name}")
         print('******CHROMA_ENDPOINT: ', CHROMA_ENDPOINT)
         try:
             client = chromadb.HttpClient(
