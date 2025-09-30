@@ -143,6 +143,8 @@ class ChromaDBManager:
     def _handle_remote_collection(self, account_unique_id: str):
         """Handle remote ChromaDB collection"""
         collection_name = f"collection-{account_unique_id}"
+        print('collection_name: ', collection_name)
+        print('headers: ', self.headers)
         
         # Check if collection exists
         try:
