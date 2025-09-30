@@ -207,6 +207,7 @@ class DetailedSearchResponse(BaseModel):
     context_used: bool = True
 
 def search_db_advanced(
+    manager,
     db: Union[chromadb.Collection, Dict], 
     query: str, 
     relevance_score: float, 
@@ -243,7 +244,7 @@ def search_db_advanced(
     elif isinstance(db, dict) and db.get("type") == "remote":
         try:
             # Use the helper to query remote collection
-            results = ChromaDBManager.query_remote_collection(db, [query], n_results=k_value)
+            results = manager.query_remote_collection(db, [query], n_results=k_value)
         except Exception as e:
             print(f"Error querying remote ChromaDB: {e}")
             return f"Database connection error: {str(e)}"
