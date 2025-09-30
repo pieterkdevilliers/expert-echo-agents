@@ -312,13 +312,20 @@ async def search_db_advanced(
             Please provide a helpful response based on the context provided above."""
     )
 
-    # 6️⃣ Run agent and attach sources
+    # 6️⃣ Run agent asynchronously
     try:
         result = await agent.run(query)
-        print('result: ', result)
-        response = result.data
-        response.sources = [meta.get("source", None) for meta in metadatas[:sources_returned]]
-        response.query = query
+        print("result:", result)
+
+        # Build structured response
+        response = DetailedSearchResponse(
+            query=query,
+            response_text=result.output,
+            sources=[meta.get("source", None) for meta in metadatas[:sources_returned]],
+            confidence_score=None,  # Optional: you can calculate if you want
+            context_used=True       # Set based on your logic
+        )
+
         return response
     except Exception as e:
         print(f"Error generating structured response: {e}")
