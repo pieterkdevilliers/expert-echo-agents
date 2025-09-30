@@ -2,8 +2,11 @@ import os
 from fastapi import Header, HTTPException
 from core.config import settings
 
-# # Load API key from env
-API_KEY = settings.dev_key
+ENVIRONMENT = os.environ.get('ENVIRONMENT')
+if ENVIRONMENT == 'development':
+    API_KEY = settings.dev_key
+
+else: API_KEY = settings.AI_API_KEY
 print("api_key: ", API_KEY)
 
 
