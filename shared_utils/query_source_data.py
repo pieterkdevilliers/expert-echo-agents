@@ -349,7 +349,11 @@ AVAILABLE PRODUCTS AND SERVICES:
                         "type": "chunk",
                         "content": new_text
                     }
-
+        # After streaming completes, send sources
+        yield {
+            "type": "sources",
+            "content": sources
+        }
         # Then signal completion
         yield {
             "type": "done",
