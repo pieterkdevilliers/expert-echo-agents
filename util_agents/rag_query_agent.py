@@ -50,6 +50,8 @@ async def query_rag_query_agent(query: Query):
         visitor_email=query.visitor_email,
         chat_history=query.chat_history,
         prompt_text=query.prompt,
-        temperature=query.temperature)
+        temperature=query.temperature,
+        scoreapp_report_text=query.scoreapp_report_text,
+        user_products_prompt=query.user_products_prompt)
     
     return search_result
