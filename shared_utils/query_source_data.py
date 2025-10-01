@@ -279,7 +279,8 @@ async def search_db_advanced(
     
     # Build the system prompt with clear sections
     system_prompt_parts = []
-    
+    print('SCORE_APP_RESULTS: ', scoreapp_report_text)
+    print('PRODUCTS: ', user_products_prompt)
     # Base instructions
     system_prompt_parts.append(prompt_text or """You are an expert analyst for a business, tasked with providing clear, comprehensive, and well-structured answers. Your tone should aim to match the tone of the source material, remaining conversational.
 
