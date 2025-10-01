@@ -1,7 +1,9 @@
 import logfire
 import os
+import json
 import shared_utils.query_source_data as rag_agent
 from pydantic_ai import Agent
+from fastapi.responses import StreamingResponse
 from schemas.agent_schemas import Query
 from core.config import settings
 from dotenv import load_dotenv
@@ -24,11 +26,13 @@ headers = {
 embedding_manager = rag_agent.OpenAIEmbeddingManager()
 
 
+# New streaming endpoint
 async def query_rag_query_agent(query: Query):
     """
-    Run a RAG query on the ChromaDB
+    Streaming version of RAG query endpoint
     """
-    print('received query: ', query)
+    print('received query for streaming: ', query)
+    
     manager = rag_agent.ChromaDBManager(
         environment=ENVIRONMENT,
         chroma_endpoint=CHROMA_ENDPOINT,
@@ -39,19 +43,73 @@ async def query_rag_query_agent(query: Query):
         query.account_unique_id,
         embedding_manager
     )
-    search_result = await rag_agent.search_db_advanced(
-        manager=manager,
-        db=prepared_db,
-        query=query.query,
-        relevance_score=query.relevance_score,
-        k_value=query.k_value,
-        sources_returned=query.sources_returned,
-        account_unique_id=query.account_unique_id,
-        visitor_email=query.visitor_email,
-        chat_history=query.chat_history,
-        prompt_text=query.prompt,
-        temperature=query.temperature,
-        scoreapp_report_text=query.scoreapp_report_text,
-        user_products_prompt=query.user_products_prompt)
     
-    return search_result
+    async def generate():
+        try:
+            async for chunk in rag_agent.search_db_advanced_stream(
+                manager=manager,
+                db=prepared_db,
+                query=query.query,
+                relevance_score=query.relevance_score,
+                k_value=query.k_value,
+                sources_returned=query.sources_returned,
+                account_unique_id=query.account_unique_id,
+                visitor_email=query.visitor_email,
+                chat_history=query.chat_history,
+                prompt_text=query.prompt,
+                temperature=query.temperature,
+                scoreapp_report_text=query.scoreapp_report_text,
+                user_products_prompt=query.user_products_prompt
+            ):
+                # Send as Server-Sent Events format
+                yield f"data: {json.dumps(chunk)}\n\n"
+        except Exception as e:
+            error_chunk = {
+                "type": "error",
+                "content": f"Streaming error: {str(e)}"
+            }
+            yield f"data: {json.dumps(error_chunk)}\n\n"
+    
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering if applicable
+        }
+    )
+
+
+
+# async def query_rag_query_agent(query: Query):
+#     """
+#     Run a RAG query on the ChromaDB
+#     """
+#     print('received query: ', query)
+#     manager = rag_agent.ChromaDBManager(
+#         environment=ENVIRONMENT,
+#         chroma_endpoint=CHROMA_ENDPOINT,
+#         headers=headers,
+#     )
+
+#     prepared_db = manager.get_or_create_collection(
+#         query.account_unique_id,
+#         embedding_manager
+#     )
+#     search_result = await rag_agent.search_db_advanced(
+#         manager=manager,
+#         db=prepared_db,
+#         query=query.query,
+#         relevance_score=query.relevance_score,
+#         k_value=query.k_value,
+#         sources_returned=query.sources_returned,
+#         account_unique_id=query.account_unique_id,
+#         visitor_email=query.visitor_email,
+#         chat_history=query.chat_history,
+#         prompt_text=query.prompt,
+#         temperature=query.temperature,
+#         scoreapp_report_text=query.scoreapp_report_text,
+#         user_products_prompt=query.user_products_prompt)
+    
+#     return search_result

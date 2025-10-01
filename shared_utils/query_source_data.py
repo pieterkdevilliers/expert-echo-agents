@@ -196,17 +196,8 @@ class ChromaDBManager:
 ###########################################
 # Previously Search DB
 ###########################################
-
-
-# Define response structure using Pydantic
-class DetailedSearchResponse(BaseModel):
-    query: str
-    response_text: str
-    sources: List[Optional[str]]
-    confidence_score: Optional[float] = None
-    context_used: bool = True
-
-async def search_db_advanced(
+# Modified search_db_advanced to support streaming
+async def search_db_advanced_stream(
     manager,
     db: Union[chromadb.Collection, Dict], 
     query: str, 
@@ -220,13 +211,14 @@ async def search_db_advanced(
     temperature=0.2,
     scoreapp_report_text={},
     user_products_prompt=""
-) -> Union[str, DetailedSearchResponse]:
+):
     """
-    Advanced search with structured response using Pydantic AI
-    Handles local and remote Chroma collections.
+    Streaming version of search_db_advanced
+    Yields chunks as they come from the AI
     """
     print('scoreapp text received in search action: ', scoreapp_report_text)
     print('user_products received in search action: ', user_products_prompt)
+    
     # 1️⃣ Local environment
     if ENVIRONMENT == 'development' and isinstance(db, chromadb.Collection):
         results = db.query(
@@ -235,9 +227,13 @@ async def search_db_advanced(
             include=["metadatas", "documents", "distances"]
         )
         if not results['documents'][0]:
-            return f"Unable to find matching results for: {query}"
+            yield {
+                "type": "error",
+                "content": f"Unable to find matching results for: {query}"
+            }
+            return
 
-    # 2️⃣ Remote environment (db is a dict)
+    # 2️⃣ Remote environment
     elif isinstance(db, dict) and db.get("type") == "remote":
         try:
             results = manager.query_remote_collection(
@@ -246,43 +242,47 @@ async def search_db_advanced(
                 n_results=k_value
             )
         except Exception as e:
-            return f"Database connection error: {str(e)}"
+            yield {
+                "type": "error",
+                "content": f"Database connection error: {str(e)}"
+            }
+            return
     else:
-        return "Invalid database object provided."
+        yield {
+            "type": "error",
+            "content": "Invalid database object provided."
+        }
+        return
 
     # 3️⃣ Extract documents and metadata
     documents = results.get("documents", [[]])[0]
     metadatas = results.get("metadatas", [[]])[0]
 
     if not documents:
-        return f"Unable to find matching results for: {query}"
+        yield {
+            "type": "error",
+            "content": f"Unable to find matching results for: {query}"
+        }
+        return
 
-    # 4️⃣ Build context and chat history - FIXED HERE
+    # 4️⃣ Build context and chat history
     context_text = "\n\n---\n\n".join(doc for doc in documents)
 
-    # Fix: Access the correct keys from your chat history dict
     history_text = ""
     if chat_history:
         formatted_messages = []
         for msg in chat_history:
-            # Handle both dict and object formats
             sender = msg.get('sender', 'unknown') if isinstance(msg, dict) else getattr(msg, 'sender', 'unknown')
             message = msg.get('message', '') if isinstance(msg, dict) else getattr(msg, 'message', '')
-            
-            # Format as conversation
             role = "User" if sender == "user" else "Assistant"
             formatted_messages.append(f"{role}: {message}")
-        
         history_text = "\n".join(formatted_messages)
 
-    # 5️⃣ Create AI agent with IMPROVED system prompt
+    # 5️⃣ Create AI agent
     model = OpenAIChatModel(CHAT_MODEL_NAME)
     
-    # Build the system prompt with clear sections
     system_prompt_parts = []
-    print('SCORE_APP_RESULTS: ', scoreapp_report_text)
-    print('PRODUCTS: ', user_products_prompt)
-    # Base instructions
+    
     system_prompt_parts.append(prompt_text or """You are an expert analyst for a business, tasked with providing clear, comprehensive, and well-structured answers. Your tone should aim to match the tone of the source material, remaining conversational.
 
 Your primary goal is to synthesize a complete answer from ALL relevant information found in the provided context, including the Chat History. Do not just use the first piece of information you find. If multiple parts of the context are relevant, combine them into a single, coherent response.
@@ -299,7 +299,6 @@ Critically, you must adhere to these constraints:
 - Do not make up an answer.
 - Keep reference to the chat history, in order to keep the conversation realistic.""")
 
-    # Add chat history if available - CRITICAL: This comes FIRST
     if history_text:
         system_prompt_parts.append(f"""
 PREVIOUS CONVERSATION:
@@ -307,46 +306,207 @@ PREVIOUS CONVERSATION:
 
 IMPORTANT: Use the conversation history above to maintain context. If the user asks about something mentioned earlier in the conversation (like their name, previous questions, etc.), refer to the history above.""")
 
-    # Add context from knowledge base
     system_prompt_parts.append(f"""
 KNOWLEDGE BASE CONTEXT:
 {context_text}""")
 
-    # Add ScoreApp report if available
     if scoreapp_report_text and scoreapp_report_text.get('scoreapp_report_text'):
         system_prompt_parts.append(f"""
 SCOREAPP REPORT:
 {scoreapp_report_text.get('scoreapp_report_text')}""")
 
-    # Add user products if available
     if user_products_prompt:
         system_prompt_parts.append(f"""
 AVAILABLE PRODUCTS AND SERVICES:
 {user_products_prompt}""")
 
-    # Combine all parts
     full_system_prompt = "\n".join(system_prompt_parts)
-    print('************************full prompt start: ', full_system_prompt, 'full prompt end*********************')
+    
     agent = Agent(
         model=model,
         system_prompt=full_system_prompt
     )
 
-    # 6️⃣ Run agent asynchronously
+    # 6️⃣ Stream agent response
     try:
-        result = await agent.run(
+        # First, send metadata about sources
+        yield {
+            "type": "sources",
+            "content": [meta.get("source", None) for meta in metadatas[:sources_returned]]
+        }
+        
+        # Then stream the AI response
+        async with agent.run_stream(
             query,
-            model_settings={"temperature": temperature})
-
-        # Build structured response
-        response = DetailedSearchResponse(
-            query=query,
-            response_text=result.output,
-            sources=[meta.get("source", None) for meta in metadatas[:sources_returned]],
-            confidence_score=None,
-            context_used=True
-        )
-        print('Reponse: ', response)
-        return response
+            model_settings={"temperature": temperature}
+        ) as response:
+            async for chunk in response.stream_text():
+                yield {
+                    "type": "chunk",
+                    "content": chunk
+                }
+        
+        # Signal completion
+        yield {
+            "type": "done",
+            "content": None
+        }
+        
     except Exception as e:
-        return f"Error generating response: {str(e)}"
+        yield {
+            "type": "error",
+            "content": f"Error generating response: {str(e)}"
+        }
+
+# # Define response structure using Pydantic
+# class DetailedSearchResponse(BaseModel):
+#     query: str
+#     response_text: str
+#     sources: List[Optional[str]]
+#     confidence_score: Optional[float] = None
+#     context_used: bool = True
+
+# async def search_db_advanced(
+#     manager,
+#     db: Union[chromadb.Collection, Dict], 
+#     query: str, 
+#     relevance_score: float, 
+#     k_value: int, 
+#     sources_returned: int, 
+#     account_unique_id: str, 
+#     visitor_email: str, 
+#     chat_history=None, 
+#     prompt_text=None, 
+#     temperature=0.2,
+#     scoreapp_report_text={},
+#     user_products_prompt=""
+# ) -> Union[str, DetailedSearchResponse]:
+#     """
+#     Advanced search with structured response using Pydantic AI
+#     Handles local and remote Chroma collections.
+#     """
+#     print('scoreapp text received in search action: ', scoreapp_report_text)
+#     print('user_products received in search action: ', user_products_prompt)
+#     # 1️⃣ Local environment
+#     if ENVIRONMENT == 'development' and isinstance(db, chromadb.Collection):
+#         results = db.query(
+#             query_texts=[query],
+#             n_results=k_value,
+#             include=["metadatas", "documents", "distances"]
+#         )
+#         if not results['documents'][0]:
+#             return f"Unable to find matching results for: {query}"
+
+#     # 2️⃣ Remote environment (db is a dict)
+#     elif isinstance(db, dict) and db.get("type") == "remote":
+#         try:
+#             results = manager.query_remote_collection(
+#                 db,
+#                 [query],
+#                 n_results=k_value
+#             )
+#         except Exception as e:
+#             return f"Database connection error: {str(e)}"
+#     else:
+#         return "Invalid database object provided."
+
+#     # 3️⃣ Extract documents and metadata
+#     documents = results.get("documents", [[]])[0]
+#     metadatas = results.get("metadatas", [[]])[0]
+
+#     if not documents:
+#         return f"Unable to find matching results for: {query}"
+
+#     # 4️⃣ Build context and chat history - FIXED HERE
+#     context_text = "\n\n---\n\n".join(doc for doc in documents)
+
+#     # Fix: Access the correct keys from your chat history dict
+#     history_text = ""
+#     if chat_history:
+#         formatted_messages = []
+#         for msg in chat_history:
+#             # Handle both dict and object formats
+#             sender = msg.get('sender', 'unknown') if isinstance(msg, dict) else getattr(msg, 'sender', 'unknown')
+#             message = msg.get('message', '') if isinstance(msg, dict) else getattr(msg, 'message', '')
+            
+#             # Format as conversation
+#             role = "User" if sender == "user" else "Assistant"
+#             formatted_messages.append(f"{role}: {message}")
+        
+#         history_text = "\n".join(formatted_messages)
+
+#     # 5️⃣ Create AI agent with IMPROVED system prompt
+#     model = OpenAIChatModel(CHAT_MODEL_NAME)
+    
+#     # Build the system prompt with clear sections
+#     system_prompt_parts = []
+#     print('SCORE_APP_RESULTS: ', scoreapp_report_text)
+#     print('PRODUCTS: ', user_products_prompt)
+#     # Base instructions
+#     system_prompt_parts.append(prompt_text or """You are an expert analyst for a business, tasked with providing clear, comprehensive, and well-structured answers. Your tone should aim to match the tone of the source material, remaining conversational.
+
+# Your primary goal is to synthesize a complete answer from ALL relevant information found in the provided context, including the Chat History. Do not just use the first piece of information you find. If multiple parts of the context are relevant, combine them into a single, coherent response.
+
+# Follow these strict formatting rules:
+# 1. Structure your answer in clear, well-written paragraphs. Do not return a single block of text.
+# 2. Ensure the response is easy to read and logically organized.
+
+# Critically, you must adhere to these constraints:
+# - Base your answer ONLY on the information provided below.
+# - Do not mention the words "context", "information provided", or "source documents".
+# - If the information is not in the context to answer the question, you must respond with: 
+#   "I don't have an answer for that right now. Please use the button below to send us an email, and we will get you the information you need."
+# - Do not make up an answer.
+# - Keep reference to the chat history, in order to keep the conversation realistic.""")
+
+#     # Add chat history if available - CRITICAL: This comes FIRST
+#     if history_text:
+#         system_prompt_parts.append(f"""
+# PREVIOUS CONVERSATION:
+# {history_text}
+
+# IMPORTANT: Use the conversation history above to maintain context. If the user asks about something mentioned earlier in the conversation (like their name, previous questions, etc.), refer to the history above.""")
+
+#     # Add context from knowledge base
+#     system_prompt_parts.append(f"""
+# KNOWLEDGE BASE CONTEXT:
+# {context_text}""")
+
+#     # Add ScoreApp report if available
+#     if scoreapp_report_text and scoreapp_report_text.get('scoreapp_report_text'):
+#         system_prompt_parts.append(f"""
+# SCOREAPP REPORT:
+# {scoreapp_report_text.get('scoreapp_report_text')}""")
+
+#     # Add user products if available
+#     if user_products_prompt:
+#         system_prompt_parts.append(f"""
+# AVAILABLE PRODUCTS AND SERVICES:
+# {user_products_prompt}""")
+
+#     # Combine all parts
+#     full_system_prompt = "\n".join(system_prompt_parts)
+#     print('************************full prompt start: ', full_system_prompt, 'full prompt end*********************')
+#     agent = Agent(
+#         model=model,
+#         system_prompt=full_system_prompt
+#     )
+
+#     # 6️⃣ Run agent asynchronously
+#     try:
+#         result = await agent.run(
+#             query,
+#             model_settings={"temperature": temperature})
+
+#         # Build structured response
+#         response = DetailedSearchResponse(
+#             query=query,
+#             response_text=result.output,
+#             sources=[meta.get("source", None) for meta in metadatas[:sources_returned]],
+#             confidence_score=None,
+#             context_used=True
+#         )
+#         print('Reponse: ', response)
+#         return response
+#     except Exception as e:
+#         return f"Error generating response: {str(e)}"
