@@ -28,6 +28,7 @@ async def query_rag_query_agent(query: Query):
     """
     Run a RAG query on the ChromaDB
     """
+    print('received query: ', query)
     manager = rag_agent.ChromaDBManager(
         environment=ENVIRONMENT,
         chroma_endpoint=CHROMA_ENDPOINT,
