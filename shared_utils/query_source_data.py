@@ -225,7 +225,8 @@ async def search_db_advanced(
     Advanced search with structured response using Pydantic AI
     Handles local and remote Chroma collections.
     """
-
+    print('scoreapp text received in search action: ', scoreapp_report_text)
+    print('user_products received in search action: ', user_products_prompt)
     # 1️⃣ Local environment
     if ENVIRONMENT == 'development' and isinstance(db, chromadb.Collection):
         results = db.query(
