@@ -29,9 +29,9 @@ embedding_manager = rag_agent.OpenAIEmbeddingManager()
 # New streaming endpoint
 async def query_rag_query_agent(query: Query):
     """
-    Streaming version of RAG query endpoint
+    Streaming RAG query endpoint (replacing non-streaming version)
     """
-    print('received query for streaming: ', query)
+    print('received query: ', query)
     
     manager = rag_agent.ChromaDBManager(
         environment=ENVIRONMENT,
@@ -46,7 +46,7 @@ async def query_rag_query_agent(query: Query):
     
     async def generate():
         try:
-            async for chunk in rag_agent.search_db_advanced_stream(
+            async for chunk in rag_agent.search_db_advanced(
                 manager=manager,
                 db=prepared_db,
                 query=query.query,
@@ -76,7 +76,7 @@ async def query_rag_query_agent(query: Query):
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # Disable nginx buffering if applicable
+            "X-Accel-Buffering": "no",
         }
     )
 

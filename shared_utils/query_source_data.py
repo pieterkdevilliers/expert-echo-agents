@@ -197,7 +197,7 @@ class ChromaDBManager:
 # Previously Search DB
 ###########################################
 # Modified search_db_advanced to support streaming
-async def search_db_advanced_stream(
+async def search_db_advanced(
     manager,
     db: Union[chromadb.Collection, Dict], 
     query: str, 
@@ -213,8 +213,7 @@ async def search_db_advanced_stream(
     user_products_prompt=""
 ):
     """
-    Streaming version of search_db_advanced
-    Yields chunks as they come from the AI
+    Streaming version - yields chunks as they come from AI
     """
     print('scoreapp text received in search action: ', scoreapp_report_text)
     print('user_products received in search action: ', user_products_prompt)
@@ -321,6 +320,7 @@ AVAILABLE PRODUCTS AND SERVICES:
 {user_products_prompt}""")
 
     full_system_prompt = "\n".join(system_prompt_parts)
+    print('************************full prompt start: ', full_system_prompt, 'full prompt end*********************')
     
     agent = Agent(
         model=model,
