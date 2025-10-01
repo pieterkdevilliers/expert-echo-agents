@@ -329,29 +329,33 @@ AVAILABLE PRODUCTS AND SERVICES:
 
     # 6️⃣ Stream agent response
     try:
-        # First, send metadata about sources
-        yield {
-            "type": "sources",
-            "content": [meta.get("source", None) for meta in metadatas[:sources_returned]]
-        }
-        
-        # Then stream the AI response
+        # Defer sources until the end
+        sources = [meta.get("source", None) for meta in metadatas[:sources_returned]]
+
+        # Track what we’ve already sent
+        previous_text = ""
+
         async with agent.run_stream(
             query,
             model_settings={"temperature": temperature}
         ) as response:
             async for chunk in response.stream_text():
-                yield {
-                    "type": "chunk",
-                    "content": chunk
-                }
-        
-        # Signal completion
+                # chunk is cumulative text → find only new part
+                new_text = chunk[len(previous_text):]
+                previous_text = chunk
+
+                if new_text:  # only send if something new appeared
+                    yield {
+                        "type": "chunk",
+                        "content": new_text
+                    }
+
+        # Then signal completion
         yield {
             "type": "done",
             "content": None
         }
-        
+
     except Exception as e:
         yield {
             "type": "error",
