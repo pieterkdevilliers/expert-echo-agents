@@ -319,11 +319,12 @@ SCOREAPP REPORT:
     # Add user products if available
     if user_products_prompt:
         system_prompt_parts.append(f"""
+AVAILABLE PRODUCTS AND SERVICES:
 {user_products_prompt}""")
 
     # Combine all parts
     full_system_prompt = "\n".join(system_prompt_parts)
-
+    print('************************full prompt start: ', full_system_prompt, 'full prompt end*********************')
     agent = Agent(
         model=model,
         system_prompt=full_system_prompt
@@ -343,7 +344,7 @@ SCOREAPP REPORT:
             confidence_score=None,
             context_used=True
         )
-
+        print('Reponse: ', response)
         return response
     except Exception as e:
         return f"Error generating response: {str(e)}"
