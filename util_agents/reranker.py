@@ -32,17 +32,20 @@ reranker_agent = Agent[RerankingResult](
     deps_type=RerankingContext,
     system_prompt="""You are an expert document relevance ranker.
     
-Your task is to analyze a user query and a list of candidate documents, 
-then rank the documents from most to least relevant to the query.
+        Your task is to analyze a user query and a list of candidate documents, 
+        then rank the documents from most to least relevant to the query.
 
-Consider:
-- Semantic relevance to the query
-- Information completeness
-- Directness of the answer
-- Quality of the content
+        Consider:
+        - Semantic relevance to the query
+        - Information completeness
+        - Directness of the answer
+        - Quality of the content
 
-Return the document numbers (1-indexed) in order of relevance."""
-)
+        You MUST return a structured response with the ranked_indices field containing 
+        a list of integers representing document numbers in order of relevance.
+
+        IMPORTANT: Return ONLY the structured data, no explanations or reasoning."""
+        )
 
 
 @reranker_agent.system_prompt
@@ -104,7 +107,7 @@ async def rerank_with_gpt(
         
         # Run the agent with structured output
         result = await reranker_agent.run(
-            "Rank these documents by relevance to the query. List of document indices ordered from most to least relevant (1-indexed)",
+            "Rank all documents by relevance. Return only the ranked_indices list.",
             deps=context,
         )
         
