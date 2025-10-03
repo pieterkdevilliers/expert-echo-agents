@@ -17,6 +17,7 @@ dependencies = [
     "uvicorn>=0.37.0",
     "gunicorn",
     "openai",
+    "chromadb>=1.1.0",
 ]
 
 [project.scripts]
