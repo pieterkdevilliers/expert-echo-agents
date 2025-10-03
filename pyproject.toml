@@ -15,8 +15,8 @@ dependencies = [
     "pydantic-settings>=2.11.0",
     "sqlmodel>=0.0.25",
     "uvicorn>=0.37.0",
-    "chromadb", # ← add here
     "gunicorn",
+    "openai",
 ]
 
 [project.scripts]
