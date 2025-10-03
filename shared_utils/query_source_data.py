@@ -2,7 +2,7 @@ import argparse
 import os
 import requests
 from typing import List, Optional, Dict, Any, Union
-from util_agents import reranker
+from util_agents.reranker import rerank_with_gpt
 from pydantic import BaseModel
 from sqlmodel import select, Session
 import chromadb
@@ -263,9 +263,16 @@ async def search_db_advanced(
     if not documents:
         yield {"type": "error", "content": f"Unable to find matching results for: {query}"}
         return
-
+    if not documents:
+        yield {"type": "error", "content": "No documents to rerank."}
+        return
+    if not query.strip():
+        yield {"type": "error", "content": "Query is empty."}
+        return
     # 🚀 NEW: GPT reranker
-    documents, metadatas = await reranker.rerank_with_gpt(query, documents, metadatas, top_n=sources_returned)
+    print("Calling GPT reranker with:", len(documents), "documents, query:", query)
+
+    documents, metadatas = await rerank_with_gpt(query, documents, metadatas, top_n=sources_returned)
 
     # 4️⃣ Build context from reranked docs
     context_text = "\n\n---\n\n".join(doc for doc in documents)
