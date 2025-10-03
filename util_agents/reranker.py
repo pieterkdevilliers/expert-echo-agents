@@ -40,6 +40,7 @@ async def rerank_with_gpt(query: str, documents: List[str], metadatas: List[dict
         messages=[{"role": "user", "content": prompt}],
         temperature=0
     )
+    print('*********************RERANKING Response: ', response)
     ranking = response.choices[0].message.content.strip()
     ranked_ids = [int(x.strip())-1 for x in ranking.split(",") if x.strip().isdigit()]
 
