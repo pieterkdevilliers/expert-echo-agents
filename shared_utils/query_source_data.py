@@ -279,6 +279,7 @@ async def search_db_advanced(
 
     for rank, meta in enumerate(metadatas[:sources_returned]):
         source = meta.get("source", None)
+        print('source: ', source)
         if source:
             best_sources.append(source)
             source_ranking.append({
