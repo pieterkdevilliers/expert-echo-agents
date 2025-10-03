@@ -11,7 +11,9 @@ else:
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-async def rerank_with_gpt(query: str, documents: List[str], metadatas: List[dict], model="gpt-4.1-mini", top_n=5):
+from openai import AsyncOpenAI
+
+async def rerank_with_gpt(query: str, documents: List[str], metadatas: List[dict], model="gpt-4o-mini", top_n=5):
     """
     Use GPT to rerank candidate documents and return top_n docs in best order.
     """
@@ -19,6 +21,11 @@ async def rerank_with_gpt(query: str, documents: List[str], metadatas: List[dict
     print('******query: ', query)
     print('****** documents: ', documents)
     print('******metadatas: ', metadatas)
+    
+    if not documents:
+        print("No documents to rerank")
+        return [], []
+    
     docs_str = "\n".join(
         f"{i+1}. (id={i}) {text[:500]}"  # truncate long docs to keep token count safe
         for i, text in enumerate(documents)
@@ -34,21 +41,38 @@ async def rerank_with_gpt(query: str, documents: List[str], metadatas: List[dict
         Return only the document numbers in order, comma-separated (e.g., 3,1,2,...).
         """
     print("*********PROMPT FOR RERANKER: ", prompt)
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    response = client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0
-    )
-    print('*********************RERANKING Response: ', response)
-    ranking = response.choices[0].message.content.strip()
-    ranked_ids = [int(x.strip())-1 for x in ranking.split(",") if x.strip().isdigit()]
+    
+    try:
+        client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        response = await client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0
+        )
+        print('*********************RERANKING Response: ', response)
+        
+        ranking = response.choices[0].message.content.strip()
+        print('*********************RANKING STRING: ', ranking)
+        
+        ranked_ids = [int(x.strip())-1 for x in ranking.split(",") if x.strip().isdigit()]
+        print('*********************RANKED IDS: ', ranked_ids)
 
-    reranked_docs = []
-    reranked_metas = []
-    for idx in ranked_ids[:top_n]:
-        if 0 <= idx < len(documents):
-            reranked_docs.append(documents[idx])
-            reranked_metas.append(metadatas[idx])
-    print('************************************RERANKED***************************************', reranked_docs, reranked_metas)
-    return reranked_docs, reranked_metas
+        reranked_docs = []
+        reranked_metas = []
+        for idx in ranked_ids[:top_n]:
+            if 0 <= idx < len(documents):
+                reranked_docs.append(documents[idx])
+                reranked_metas.append(metadatas[idx])
+        
+        print('************************************RERANKED***************************************')
+        print('Reranked docs count:', len(reranked_docs))
+        print('Reranked metas count:', len(reranked_metas))
+        
+        return reranked_docs, reranked_metas
+    
+    except Exception as e:
+        print(f"❌ Error in reranking: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        # Return original documents if reranking fails
+        return documents[:top_n], metadatas[:top_n]
