@@ -11,8 +11,6 @@ else:
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-from openai import AsyncOpenAI
-
 async def rerank_with_gpt(query: str, documents: List[str], metadatas: List[dict], model="gpt-4o-mini", top_n=5):
     """
     Use GPT to rerank candidate documents and return top_n docs in best order.
@@ -43,7 +41,6 @@ async def rerank_with_gpt(query: str, documents: List[str], metadatas: List[dict
     print("*********PROMPT FOR RERANKER: ", prompt)
     
     try:
-        client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         response = await client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
