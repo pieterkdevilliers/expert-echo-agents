@@ -17,19 +17,11 @@ dependencies = [
     "uvicorn>=0.37.0",
     "chromadb", # ← add here
     "gunicorn",
-    "sentence-transformers==2.2.2",
-    "torch==2.2.2+cpu",
-    "torchvision==0.17.2+cpu",
-    "torchaudio==2.2.2+cpu",
 ]
 
 [project.scripts]
 expert-echo-agents = "expert_echo_agents:main"
 
-[[tool.uv.index]]
-url = "https://download.pytorch.org/whl/cpu"
-
 # [build-system]
 # requires = ["uv_build>=0.8.22,<0.9.0"]
 # build-backend = "uv_build"
-
