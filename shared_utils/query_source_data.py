@@ -257,6 +257,7 @@ async def search_db_advanced(
     # 3️⃣ Extract documents and metadata
     documents = results.get("documents", [[]])[0]
     metadatas = results.get("metadatas", [[]])[0]
+    distances = results.get("distances", [[]])[0]
 
     if not documents:
         yield {
@@ -267,6 +268,29 @@ async def search_db_advanced(
 
     # 4️⃣ Build context and chat history
     context_text = "\n\n---\n\n".join(doc for doc in documents)
+
+    # Create sorted list of (distance, metadata) pairs to find best sources
+    # Lower distance = more relevant (ChromaDB uses cosine distance where 0 = identical)
+    source_ranking = []
+    for i, (dist, meta) in enumerate(zip(distances, metadatas)):
+        source = meta.get("source", None)
+        if source:  # Only include if source exists
+            source_ranking.append({
+                "distance": dist,
+                "source": source,
+                "metadata": meta,
+                "index": i
+            })
+    
+    # Sort by distance (ascending - lowest distance first)
+    source_ranking.sort(key=lambda x: x["distance"])
+    
+    # Get top N sources based on sources_returned parameter
+    best_sources = [item["source"] for item in source_ranking[:sources_returned]]
+    
+    print(f"Using {k_value} docs for context, returning top {sources_returned} sources")
+    print(f"Distance scores: {[f'{item['distance']:.4f}' for item in source_ranking[:sources_returned]]}")
+
 
     history_text = ""
     if chat_history:
@@ -353,7 +377,7 @@ AVAILABLE PRODUCTS AND SERVICES:
         # After streaming completes, send sources
         yield {
             "type": "sources",
-            "content": sources
+            "content": best_sources
         }
         # Then signal completion
         yield {
