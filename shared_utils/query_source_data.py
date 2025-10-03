@@ -2,7 +2,6 @@ import argparse
 import os
 import requests
 from typing import List, Optional, Dict, Any, Union
-from util_agents.reranker import rerank_with_gpt
 from pydantic import BaseModel
 from sqlmodel import select, Session
 import chromadb
@@ -269,20 +268,9 @@ async def search_db_advanced(
     if not query.strip():
         yield {"type": "error", "content": "Query is empty."}
         return
-# 🚀 NEW: GPT reranker
-    print("Calling GPT reranker with:", len(documents), "documents:", documents, "query:", query)
-
-    # Store original distances before reranking
-    original_distances = distances.copy()
-    original_metadatas = metadatas.copy()
-
-    documents, metadatas = await rerank_with_gpt(query, documents, metadatas, top_n=sources_returned)
-    print('********RERANKED RESULTS:**************')
-    print('documents: ', documents)
-    print('metadatas: ', metadatas)
 
 
-    # 4️⃣ Build context from reranked docs
+    # 4️⃣ Build context from docs
     context_text = "\n\n---\n\n".join(doc for doc in documents)
 
     # 5️⃣ Use reranked order as relevance
