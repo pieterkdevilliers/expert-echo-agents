@@ -108,7 +108,7 @@ async def rerank_with_gpt(
             deps=context,
         )
         
-        print('*********************RERANKING Result: ', result.data)
+        print('*********************RERANKING Result: ', result)
         
         # Extract ranked indices (convert from 1-indexed to 0-indexed)
         ranked_ids = [idx - 1 for idx in result.data.ranked_indices if 1 <= idx <= len(documents)]
