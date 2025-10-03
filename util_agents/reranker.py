@@ -15,7 +15,10 @@ async def rerank_with_gpt(query: str, documents: List[str], metadatas: List[dict
     """
     Use GPT to rerank candidate documents and return top_n docs in best order.
     """
-    print('******reranking started: ', query, documents, metadatas)
+    print('******reranking started: ')
+    print('******query: ', query)
+    print('****** documents: ', documents)
+    print('******metadatas: ', metadatas)
     docs_str = "\n".join(
         f"{i+1}. (id={i}) {text[:500]}"  # truncate long docs to keep token count safe
         for i, text in enumerate(documents)
