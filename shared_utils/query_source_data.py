@@ -13,6 +13,7 @@ from chromadb.api.types import EmbeddingFunction
 from chromadb.config import Settings
 from dotenv import load_dotenv
 
+from sentence_transformers import CrossEncoder
 
 load_dotenv()
 
@@ -29,6 +30,9 @@ headers = {
 
 # Initialize OpenAI client directly
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# load once, globally (don’t reload inside handler!)
+cross_encoder = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
 
 # Direct embedding function (simplified approach)
 def get_openai_embeddings(texts: List[str], model: str = "text-embedding-3-small") -> List[List[float]]:
@@ -378,7 +382,7 @@ AVAILABLE PRODUCTS AND SERVICES:
         # After streaming completes, send the BEST sources (not just first N)
         yield {
             "type": "sources",
-            "content": best_sources
+            "content": reranked_metas
         }
         
         # Then signal completion
