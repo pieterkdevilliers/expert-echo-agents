@@ -15,21 +15,22 @@ async def rerank_with_gpt(query: str, documents: List[str], metadatas: List[dict
     """
     Use GPT to rerank candidate documents and return top_n docs in best order.
     """
+    print('******reranking started: ', query, documents, metadatas)
     docs_str = "\n".join(
         f"{i+1}. (id={i}) {text[:500]}"  # truncate long docs to keep token count safe
         for i, text in enumerate(documents)
     )
 
     prompt = f"""
-The user asked: "{query}"
+        The user asked: "{query}"
 
-Here are candidate documents:
-{docs_str}
+        Here are candidate documents:
+        {docs_str}
 
-Rank the documents from most to least relevant to the query.
-Return only the document numbers in order, comma-separated (e.g., 3,1,2,...).
-"""
-
+        Rank the documents from most to least relevant to the query.
+        Return only the document numbers in order, comma-separated (e.g., 3,1,2,...).
+        """
+    print("*********PROMPT FOR RERANKER")
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     response = client.chat.completions.create(
         model=model,
@@ -45,5 +46,5 @@ Return only the document numbers in order, comma-separated (e.g., 3,1,2,...).
         if 0 <= idx < len(documents):
             reranked_docs.append(documents[idx])
             reranked_metas.append(metadatas[idx])
-
+    print('************************************RERANKED***************************************', reranked_docs, reranked_metas)
     return reranked_docs, reranked_metas
