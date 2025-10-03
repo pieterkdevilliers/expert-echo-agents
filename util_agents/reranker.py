@@ -111,16 +111,16 @@ async def rerank_with_gpt(
         print('*********************RERANKING Result: ', result)
         
         # Extract ranked indices (convert from 1-indexed to 0-indexed)
-        ranked_ids = [idx - 1 for idx in result.data.ranked_indices if 1 <= idx <= len(documents)]
-        print('*********************RANKED IDS (0-indexed): ', ranked_ids)
+        # ranked_ids = [idx - 1 for idx in result.data.ranked_indices if 1 <= idx <= len(documents)]
+        # print('*********************RANKED IDS (0-indexed): ', ranked_ids)
         
         # Build reranked lists
         reranked_docs = []
         reranked_metas = []
-        for idx in ranked_ids[:top_n]:
-            if 0 <= idx < len(documents):
-                reranked_docs.append(documents[idx])
-                reranked_metas.append(metadatas[idx])
+        # for idx in ranked_ids[:top_n]:
+        #     if 0 <= idx < len(documents):
+        #         reranked_docs.append(documents[idx])
+        #         reranked_metas.append(metadatas[idx])
         
         print('************************************RERANKED***************************************')
         print('Reranked docs count:', len(reranked_docs))
