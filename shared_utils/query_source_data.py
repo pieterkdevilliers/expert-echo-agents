@@ -277,6 +277,10 @@ async def search_db_advanced(
     original_metadatas = metadatas.copy()
 
     documents, metadatas = await rerank_with_gpt(query, documents, metadatas, top_n=sources_returned)
+    print('********RERANKED RESULTS:**************')
+    print('documents: ', documents)
+    print('metadatas: ', metadatas)
+
 
     # 4️⃣ Build context from reranked docs
     context_text = "\n\n---\n\n".join(doc for doc in documents)
