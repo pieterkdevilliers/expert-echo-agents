@@ -273,28 +273,28 @@ async def search_db_advanced(
     # 4️⃣ Build context from docs
     context_text = "\n\n---\n\n".join(doc for doc in documents)
 
-    # 5️⃣ Use reranked order as relevance
-    best_sources = []
+    # 5️⃣ Create sorted list of (distance, metadata) pairs to find best sources
+    # Lower distance = more relevant (ChromaDB uses cosine distance where 0 = identical)
     source_ranking = []
-
-    for rank, meta in enumerate(metadatas[:sources_returned]):
+    for i, (dist, meta) in enumerate(zip(distances, metadatas)):
         source = meta.get("source", None)
-        
-        if source:
-            print('source: ', source)
-            best_sources.append(source)
-            print('best_sources: ', best_sources)
+        if source:  # Only include if source exists
             source_ranking.append({
-                "rank": rank + 1,  # 1-indexed rank
+                "distance": dist,
                 "source": source,
-                "metadata": meta
+                "metadata": meta,
+                "index": i
             })
-            print('source_ranking: ', source_ranking)
-
+    # Sort by distance (ascending - lowest distance first)
+    source_ranking.sort(key=lambda x: x["distance"])
+    
+    
+    # Get top N sources based on sources_returned parameter
+    best_sources = [item["source"] for item in source_ranking[:sources_returned]]
     print('best_sources: ', best_sources)
-    print(f"Using {len(documents)} reranked docs for context, returning top {sources_returned} sources")
-    print('source_ranking: ', source_ranking)
-    print(f"Reranked order: {[item['rank'] for item in source_ranking]}")
+    
+    print(f"Using {k_value} docs for context, returning top {sources_returned} sources")
+    print(f"Distance scores: {[f'{item['distance']:.4f}' for item in source_ranking[:sources_returned]]}")
 
     # 6️⃣ Build chat history
     history_text = ""
