@@ -104,7 +104,7 @@ async def rerank_with_gpt(
         
         # Run the agent with structured output
         result = await reranker_agent.run(
-            "Rank these documents by relevance to the query.",
+            "Rank these documents by relevance to the query. List of document indices ordered from most to least relevant (1-indexed)",
             deps=context,
         )
         
