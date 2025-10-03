@@ -27,7 +27,7 @@ class RerankingContext(BaseModel):
 
 
 # Create the reranking agent with structured output
-reranker_agent = Agent(
+reranker_agent = Agent[RerankingResult](
     'openai:gpt-4o-mini',
     deps_type=RerankingContext,
     system_prompt="""You are an expert document relevance ranker.
@@ -106,7 +106,6 @@ async def rerank_with_gpt(
         result = await reranker_agent.run(
             "Rank these documents by relevance to the query.",
             deps=context,
-            result_type=RerankingResult
         )
         
         print('*********************RERANKING Result: ', result.data)
