@@ -2,6 +2,7 @@ import argparse
 import os
 import requests
 from typing import List, Optional, Dict, Any, Union
+from util_agents import reranker
 from pydantic import BaseModel
 from sqlmodel import select, Session
 import chromadb
@@ -260,18 +261,14 @@ async def search_db_advanced(
     metadatas = results.get("metadatas", [[]])[0]
     distances = results.get("distances", [[]])[0]
 
-    print('******documents: ', documents)
-    print('******metadatas: ', metadatas)
-    print('******distances: ', distances)
-
     if not documents:
-        yield {
-            "type": "error",
-            "content": f"Unable to find matching results for: {query}"
-        }
+        yield {"type": "error", "content": f"Unable to find matching results for: {query}"}
         return
 
-    # 4️⃣ Build context using ALL k_value documents for answer generation
+    # 🚀 NEW: GPT reranker
+    documents, metadatas = await reranker.rerank_with_gpt(query, documents, metadatas, top_n=sources_returned)
+
+    # 4️⃣ Build context from reranked docs
     context_text = "\n\n---\n\n".join(doc for doc in documents)
 
     # 5️⃣ Create sorted list of (distance, metadata) pairs to find best sources
