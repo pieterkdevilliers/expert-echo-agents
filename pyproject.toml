@@ -17,6 +17,7 @@ dependencies = [
     "uvicorn>=0.37.0",
     "chromadb", # ← add here
     "gunicorn",
+    "sentence-transformers>=5.1.1",
 ]
 
 [project.scripts]
