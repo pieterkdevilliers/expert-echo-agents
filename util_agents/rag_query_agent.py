@@ -12,6 +12,7 @@ load_dotenv()
 
 if os.getenv("LOGFIRE_ENABLED", "false").lower() == "true":
     logfire.configure()
+    logfire.instrument_pydantic_ai()
 else:
     logfire.instrument_pydantic_ai()
 
