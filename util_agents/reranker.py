@@ -1,8 +1,8 @@
 import os
 import logfire
 from typing import List
-from pydantic_ai import Agent
-from openai import AsyncOpenAI
+from pydantic import BaseModel, Field
+from pydantic_ai import Agent, RunContext
 
 if os.getenv("LOGFIRE_ENABLED", "false").lower() == "true":
     logfire.configure()
@@ -10,70 +10,123 @@ if os.getenv("LOGFIRE_ENABLED", "false").lower() == "true":
 else:
     logfire.instrument_pydantic_ai()
 
-async def rerank_with_gpt(query: str, documents: List[str], metadatas: List[dict], model="gpt-4o-mini", top_n=5):
+
+class RerankingResult(BaseModel):
+    """Structured output for document reranking"""
+    ranked_indices: List[int] = Field(
+        description="List of document indices ordered from most to least relevant (1-indexed)"
+    )
+
+
+class RerankingContext(BaseModel):
+    """Context for the reranking agent"""
+    query: str
+    documents: List[str]
+    metadatas: List[dict]
+    top_n: int = 5
+
+
+# Create the reranking agent with structured output
+reranker_agent = Agent(
+    'openai:gpt-4o-mini',
+    result_type=RerankingResult,
+    system_prompt="""You are an expert document relevance ranker.
+    
+Your task is to analyze a user query and a list of candidate documents, 
+then rank the documents from most to least relevant to the query.
+
+Consider:
+- Semantic relevance to the query
+- Information completeness
+- Directness of the answer
+- Quality of the content
+
+Return the document numbers (1-indexed) in order of relevance."""
+)
+
+
+@reranker_agent.system_prompt
+def add_documents_to_prompt(ctx: RunContext[RerankingContext]) -> str:
+    """Dynamically add documents to the system prompt"""
+    docs_str = "\n".join(
+        f"{i+1}. {text[:500]}"  # truncate long docs
+        for i, text in enumerate(ctx.deps.documents)
+    )
+    
+    return f"""
+Here are the candidate documents to rank:
+
+{docs_str}
+
+User Query: "{ctx.deps.query}"
+
+Rank these documents from most to least relevant to the user's query.
+"""
+
+
+async def rerank_with_gpt(
+    query: str, 
+    documents: List[str], 
+    metadatas: List[dict], 
+    model: str = "gpt-4o-mini", 
+    top_n: int = 5
+) -> tuple[List[str], List[dict]]:
     """
-    Use GPT to rerank candidate documents and return top_n docs in best order.
+    Use GPT via pydantic-ai agent to rerank candidate documents.
+    
+    Args:
+        query: The user's search query
+        documents: List of document texts to rerank
+        metadatas: Corresponding metadata for each document
+        model: OpenAI model to use (note: agent uses model from initialization)
+        top_n: Number of top documents to return
+        
+    Returns:
+        Tuple of (reranked_documents, reranked_metadatas)
     """
     print('******reranking started: ')
     print('******query: ', query)
-    print('****** documents: ', documents)
-    print('******metadatas: ', metadatas)
+    print(f'****** documents: {len(documents)} documents')
+    print(f'******metadatas: {len(metadatas)} metadatas')
     
     if not documents:
         print("No documents to rerank")
         return [], []
     
-    docs_str = "\n".join(
-        f"{i+1}. (id={i}) {text[:500]}"  # truncate long docs to keep token count safe
-        for i, text in enumerate(documents)
-    )
-
-    prompt = f"""
-        The user asked: "{query}"
-
-        Here are candidate documents:
-        {docs_str}
-
-        Rank the documents from most to least relevant to the query.
-        Return only the document numbers in order, comma-separated (e.g., 3,1,2,...).
-        """
-    print("*********PROMPT FOR RERANKER: ", prompt)
-    
     try:
-        agent = Agent(
-            model=model,
-            system_prompt=prompt
+        # Create context for the agent
+        context = RerankingContext(
+            query=query,
+            documents=documents,
+            metadatas=metadatas,
+            top_n=top_n
         )
-        response = await agent.run()
-        print('Agent Response: ', response)
-
-    # try:
-    #     client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    #     response = await client.chat.completions.create(
-    #         model=model,
-    #         messages=[{"role": "user", "content": prompt}],
-    #         temperature=0
-    #     )
-    #     print('*********************RERANKING Response: ', response)
         
-    #     ranking = response.choices[0].message.content.strip()
-    #     print('*********************RANKING STRING: ', ranking)
+        # Run the agent
+        result = await reranker_agent.run(
+            "Rank these documents by relevance to the query.",
+            deps=context
+        )
         
-    #     ranked_ids = [int(x.strip())-1 for x in ranking.split(",") if x.strip().isdigit()]
-    #     print('*********************RANKED IDS: ', ranked_ids)
-
-    #     reranked_docs = []
-    #     reranked_metas = []
-    #     for idx in ranked_ids[:top_n]:
-    #         if 0 <= idx < len(documents):
-    #             reranked_docs.append(documents[idx])
-    #             reranked_metas.append(metadatas[idx])
+        print('*********************RERANKING Result: ', result.data)
         
-    #     print('************************************RERANKED***************************************')
-    #     print('Reranked docs count:', len(reranked_docs))
-    #     print('Reranked metas count:', len(reranked_metas))
+        # Extract ranked indices (convert from 1-indexed to 0-indexed)
+        ranked_ids = [idx - 1 for idx in result.data.ranked_indices if 1 <= idx <= len(documents)]
+        print('*********************RANKED IDS (0-indexed): ', ranked_ids)
         
-    #     return reranked_docs, reranked_metas
+        # Build reranked lists
+        reranked_docs = []
+        reranked_metas = []
+        for idx in ranked_ids[:top_n]:
+            if 0 <= idx < len(documents):
+                reranked_docs.append(documents[idx])
+                reranked_metas.append(metadatas[idx])
+        
+        print('************************************RERANKED***************************************')
+        print('Reranked docs count:', len(reranked_docs))
+        print('Reranked metas count:', len(reranked_metas))
+        
+        return reranked_docs, reranked_metas
     
     except Exception as e:
         print(f"❌ Error in reranking: {type(e).__name__}: {e}")
