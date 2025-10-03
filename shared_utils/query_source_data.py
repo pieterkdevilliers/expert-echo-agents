@@ -282,10 +282,12 @@ async def search_db_advanced(
                 "metadata": meta,
                 "index": i
             })
-    
+    print('**********source_ranking: ', source_ranking)
+    ranked_sources = source_ranking.sort(key=lambda x: x["distance"])
+    print('**********ranked_sources: ', ranked_sources)
     # Sort by distance (ascending - lowest distance first)
     source_ranking.sort(key=lambda x: x["distance"])
-    print('ranked_sources: ', source_ranking.sort(key=lambda x: x["distance"]))
+    
     
     # Get top N sources based on sources_returned parameter
     best_sources = [item["source"] for item in source_ranking[:sources_returned]]
