@@ -215,6 +215,7 @@ async def search_db_advanced(
 ):
     """
     Streaming version - yields chunks as they come from AI
+    Returns only the top N most relevant sources based on distance scores
     """
     print('scoreapp text received in search action: ', scoreapp_report_text)
     print('user_products received in search action: ', user_products_prompt)
@@ -254,11 +255,10 @@ async def search_db_advanced(
         }
         return
 
-    # 3️⃣ Extract documents and metadata
+    # 3️⃣ Extract documents, metadata, and distances
     documents = results.get("documents", [[]])[0]
     metadatas = results.get("metadatas", [[]])[0]
     distances = results.get("distances", [[]])[0]
-    print('***********documents: ', documents)
 
     if not documents:
         yield {
@@ -267,10 +267,10 @@ async def search_db_advanced(
         }
         return
 
-    # 4️⃣ Build context and chat history
+    # 4️⃣ Build context using ALL k_value documents for answer generation
     context_text = "\n\n---\n\n".join(doc for doc in documents)
 
-    # Create sorted list of (distance, metadata) pairs to find best sources
+    # 5️⃣ Create sorted list of (distance, metadata) pairs to find best sources
     # Lower distance = more relevant (ChromaDB uses cosine distance where 0 = identical)
     source_ranking = []
     for i, (dist, meta) in enumerate(zip(distances, metadatas)):
@@ -285,16 +285,14 @@ async def search_db_advanced(
     
     # Sort by distance (ascending - lowest distance first)
     source_ranking.sort(key=lambda x: x["distance"])
-    print('***********ranked sources: ', source_ranking.sort(key=lambda x: x["distance"]))
     
     # Get top N sources based on sources_returned parameter
     best_sources = [item["source"] for item in source_ranking[:sources_returned]]
-    print('***********best_sources: ', best_sources)
     
     print(f"Using {k_value} docs for context, returning top {sources_returned} sources")
     print(f"Distance scores: {[f'{item['distance']:.4f}' for item in source_ranking[:sources_returned]]}")
 
-
+    # 6️⃣ Build chat history
     history_text = ""
     if chat_history:
         formatted_messages = []
@@ -305,7 +303,7 @@ async def search_db_advanced(
             formatted_messages.append(f"{role}: {message}")
         history_text = "\n".join(formatted_messages)
 
-    # 5️⃣ Create AI agent
+    # 7️⃣ Create AI agent
     model = OpenAIChatModel(CHAT_MODEL_NAME)
     
     system_prompt_parts = []
@@ -355,12 +353,9 @@ AVAILABLE PRODUCTS AND SERVICES:
         system_prompt=full_system_prompt
     )
 
-    # 6️⃣ Stream agent response
+    # 8️⃣ Stream agent response
     try:
-        # Defer sources until the end
-        sources = [meta.get("source", None) for meta in metadatas[:sources_returned]]
-
-        # Track what we’ve already sent
+        # Track what we've already sent
         previous_text = ""
 
         async with agent.run_stream(
@@ -377,11 +372,13 @@ AVAILABLE PRODUCTS AND SERVICES:
                         "type": "chunk",
                         "content": new_text
                     }
-        # After streaming completes, send sources
+        
+        # After streaming completes, send the BEST sources (not just first N)
         yield {
             "type": "sources",
             "content": best_sources
         }
+        
         # Then signal completion
         yield {
             "type": "done",
