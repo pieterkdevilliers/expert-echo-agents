@@ -270,7 +270,7 @@ async def search_db_advanced(
         yield {"type": "error", "content": "Query is empty."}
         return
     # 🚀 NEW: GPT reranker
-    print("Calling GPT reranker with:", len(documents), "documents, query:", query)
+    print("Calling GPT reranker with:", len(documents), "documents:", documents, "query:", query)
 
     documents, metadatas = await rerank_with_gpt(query, documents, metadatas, top_n=sources_returned)
 
