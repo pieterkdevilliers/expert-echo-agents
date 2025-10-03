@@ -258,6 +258,7 @@ async def search_db_advanced(
     documents = results.get("documents", [[]])[0]
     metadatas = results.get("metadatas", [[]])[0]
     distances = results.get("distances", [[]])[0]
+    print('***********documents: ', documents)
 
     if not documents:
         yield {
@@ -284,9 +285,11 @@ async def search_db_advanced(
     
     # Sort by distance (ascending - lowest distance first)
     source_ranking.sort(key=lambda x: x["distance"])
+    print('***********ranked sources: ', source_ranking.sort(key=lambda x: x["distance"]))
     
     # Get top N sources based on sources_returned parameter
     best_sources = [item["source"] for item in source_ranking[:sources_returned]]
+    print('***********best_sources: ', best_sources)
     
     print(f"Using {k_value} docs for context, returning top {sources_returned} sources")
     print(f"Distance scores: {[f'{item['distance']:.4f}' for item in source_ranking[:sources_returned]]}")
