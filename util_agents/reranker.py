@@ -1,15 +1,13 @@
 import os
 import logfire
 from typing import List
-from openai import OpenAI
+from openai import AsyncOpenAI
 
 if os.getenv("LOGFIRE_ENABLED", "false").lower() == "true":
     logfire.configure()
     logfire.instrument_pydantic_ai()
 else:
     logfire.instrument_pydantic_ai()
-
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 async def rerank_with_gpt(query: str, documents: List[str], metadatas: List[dict], model="gpt-4o-mini", top_n=5):
     """
@@ -41,7 +39,8 @@ async def rerank_with_gpt(query: str, documents: List[str], metadatas: List[dict
     print("*********PROMPT FOR RERANKER: ", prompt)
     
     try:
-        response = client.chat.completions.create(
+        client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        response = await client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0
