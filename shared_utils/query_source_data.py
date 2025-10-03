@@ -260,6 +260,10 @@ async def search_db_advanced(
     metadatas = results.get("metadatas", [[]])[0]
     distances = results.get("distances", [[]])[0]
 
+    print('******documents: ', documents)
+    print('******metadatas: ', metadatas)
+    print('******distances: ', distances)
+
     if not documents:
         yield {
             "type": "error",
