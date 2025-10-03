@@ -9,7 +9,7 @@ if os.getenv("LOGFIRE_ENABLED", "false").lower() == "true":
 else:
     logfire.instrument_pydantic_ai()
 
-client = OpenAI()
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 async def rerank_with_gpt(query: str, documents: List[str], metadatas: List[dict], model="gpt-4.1-mini", top_n=5):
     """
@@ -33,7 +33,7 @@ async def rerank_with_gpt(query: str, documents: List[str], metadatas: List[dict
         Rank the documents from most to least relevant to the query.
         Return only the document numbers in order, comma-separated (e.g., 3,1,2,...).
         """
-    print("*********PROMPT FOR RERANKER")
+    print("*********PROMPT FOR RERANKER: ", prompt)
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     response = client.chat.completions.create(
         model=model,
