@@ -1,6 +1,7 @@
 import os
 import logfire
 from typing import List
+from pydantic_ai import Agent
 from openai import AsyncOpenAI
 
 if os.getenv("LOGFIRE_ENABLED", "false").lower() == "true":
@@ -39,32 +40,40 @@ async def rerank_with_gpt(query: str, documents: List[str], metadatas: List[dict
     print("*********PROMPT FOR RERANKER: ", prompt)
     
     try:
-        client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        response = await client.chat.completions.create(
+        agent = Agent(
             model=model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0
+            system_prompt=prompt
         )
-        print('*********************RERANKING Response: ', response)
-        
-        ranking = response.choices[0].message.content.strip()
-        print('*********************RANKING STRING: ', ranking)
-        
-        ranked_ids = [int(x.strip())-1 for x in ranking.split(",") if x.strip().isdigit()]
-        print('*********************RANKED IDS: ', ranked_ids)
+        response = await agent.run()
+        print('Agent Response: ', response)
 
-        reranked_docs = []
-        reranked_metas = []
-        for idx in ranked_ids[:top_n]:
-            if 0 <= idx < len(documents):
-                reranked_docs.append(documents[idx])
-                reranked_metas.append(metadatas[idx])
+    # try:
+    #     client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    #     response = await client.chat.completions.create(
+    #         model=model,
+    #         messages=[{"role": "user", "content": prompt}],
+    #         temperature=0
+    #     )
+    #     print('*********************RERANKING Response: ', response)
         
-        print('************************************RERANKED***************************************')
-        print('Reranked docs count:', len(reranked_docs))
-        print('Reranked metas count:', len(reranked_metas))
+    #     ranking = response.choices[0].message.content.strip()
+    #     print('*********************RANKING STRING: ', ranking)
         
-        return reranked_docs, reranked_metas
+    #     ranked_ids = [int(x.strip())-1 for x in ranking.split(",") if x.strip().isdigit()]
+    #     print('*********************RANKED IDS: ', ranked_ids)
+
+    #     reranked_docs = []
+    #     reranked_metas = []
+    #     for idx in ranked_ids[:top_n]:
+    #         if 0 <= idx < len(documents):
+    #             reranked_docs.append(documents[idx])
+    #             reranked_metas.append(metadatas[idx])
+        
+    #     print('************************************RERANKED***************************************')
+    #     print('Reranked docs count:', len(reranked_docs))
+    #     print('Reranked metas count:', len(reranked_metas))
+        
+    #     return reranked_docs, reranked_metas
     
     except Exception as e:
         print(f"❌ Error in reranking: {type(e).__name__}: {e}")
