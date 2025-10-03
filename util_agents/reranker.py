@@ -41,7 +41,7 @@ async def rerank_with_gpt(query: str, documents: List[str], metadatas: List[dict
     print("*********PROMPT FOR RERANKER: ", prompt)
     
     try:
-        response = await client.chat.completions.create(
+        response = client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0
