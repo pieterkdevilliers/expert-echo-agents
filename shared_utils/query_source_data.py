@@ -2,6 +2,7 @@ import argparse
 import os
 import requests
 from typing import List, Optional, Dict, Any, Union
+from util_agents import reranker
 from pydantic import BaseModel
 from sqlmodel import select, Session
 import chromadb
@@ -264,43 +265,15 @@ async def search_db_advanced(
     metadatas = results.get("metadatas", [[]])[0]
     distances = results.get("distances", [[]])[0]
 
-    print('******documents: ', documents)
-    print('******metadatas: ', metadatas)
-    print('******distances: ', distances)
-
     if not documents:
-        yield {
-            "type": "error",
-            "content": f"Unable to find matching results for: {query}"
-        }
+        yield {"type": "error", "content": f"Unable to find matching results for: {query}"}
         return
 
-    # --- NEW: Rerank with cross-encoder ---
-    # Prepare (query, doc) pairs
-    pairs = [(query, doc) for doc in documents]
-    print('***********pairs: ', pairs)
+    # 🚀 NEW: GPT reranker
+    documents, metadatas = await reranker.rerank_with_gpt(query, documents, metadatas, top_n=sources_returned)
 
-    # Model returns a relevance score for each pair
-    scores = cross_encoder.predict(pairs)
-    print('***********scores: ', scores)
-
-    # Zip back together
-    ranked = sorted(
-        zip(scores, documents, metadatas, distances),
-        key=lambda x: x[0],  # sort by cross-encoder score
-        reverse=True         # higher = more relevant
-    )
-    print('***********ranked: ', ranked)
-
-    # Keep top N
-    reranked_docs = [doc for _, doc, _, _ in ranked[:k_value]]
-    reranked_metas = [meta for _, _, meta, _ in ranked[:sources_returned]]
-    reranked_scores = [score for score, _, _, _ in ranked[:sources_returned]]
-
-    print("Cross-encoder reranked scores:", reranked_scores)
-
-    # 4️⃣ Build context using ALL k_value documents for answer generation
-    context_text = "\n\n---\n\n".join(reranked_docs)
+    # 4️⃣ Build context from reranked docs
+    context_text = "\n\n---\n\n".join(doc for doc in documents)
 
     # 5️⃣ Create sorted list of (distance, metadata) pairs to find best sources
     # Lower distance = more relevant (ChromaDB uses cosine distance where 0 = identical)
