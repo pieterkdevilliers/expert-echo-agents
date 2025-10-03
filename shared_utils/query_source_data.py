@@ -283,11 +283,13 @@ async def search_db_advanced(
         if source:
             print('source: ', source)
             best_sources.append(source)
+            print('best_sources: ', best_sources)
             source_ranking.append({
                 "rank": rank + 1,  # 1-indexed rank
                 "source": source,
                 "metadata": meta
             })
+            print('source_ranking: ', source_ranking)
 
     print('best_sources: ', best_sources)
     print(f"Using {len(documents)} reranked docs for context, returning top {sources_returned} sources")
