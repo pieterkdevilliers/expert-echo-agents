@@ -377,7 +377,7 @@ AVAILABLE PRODUCTS AND SERVICES:
         # After streaming completes, send the BEST sources (not just first N)
         yield {
             "type": "sources",
-            "content": best_sources
+            "content": reranked_metas
         }
         
         # Then signal completion
