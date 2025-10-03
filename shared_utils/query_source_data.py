@@ -13,7 +13,6 @@ from chromadb.api.types import EmbeddingFunction
 from chromadb.config import Settings
 from dotenv import load_dotenv
 
-
 load_dotenv()
 
 CHAT_MODEL_NAME = os.environ.get('OPENAI_CHAT_MODEL')
