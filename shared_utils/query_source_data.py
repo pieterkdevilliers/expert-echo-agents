@@ -269,36 +269,35 @@ async def search_db_advanced(
     if not query.strip():
         yield {"type": "error", "content": "Query is empty."}
         return
-    # 🚀 NEW: GPT reranker
+# 🚀 NEW: GPT reranker
     print("Calling GPT reranker with:", len(documents), "documents:", documents, "query:", query)
+
+    # Store original distances before reranking
+    original_distances = distances.copy()
+    original_metadatas = metadatas.copy()
 
     documents, metadatas = await rerank_with_gpt(query, documents, metadatas, top_n=sources_returned)
 
     # 4️⃣ Build context from reranked docs
     context_text = "\n\n---\n\n".join(doc for doc in documents)
 
-    # 5️⃣ Create sorted list of (distance, metadata) pairs to find best sources
-    # Lower distance = more relevant (ChromaDB uses cosine distance where 0 = identical)
+    # 5️⃣ Use reranked order as relevance
+    best_sources = []
     source_ranking = []
-    for i, (dist, meta) in enumerate(zip(distances, metadatas)):
+
+    for rank, meta in enumerate(metadatas[:sources_returned]):
         source = meta.get("source", None)
-        if source:  # Only include if source exists
+        if source:
+            best_sources.append(source)
             source_ranking.append({
-                "distance": dist,
+                "rank": rank + 1,  # 1-indexed rank
                 "source": source,
-                "metadata": meta,
-                "index": i
+                "metadata": meta
             })
-    # Sort by distance (ascending - lowest distance first)
-    source_ranking.sort(key=lambda x: x["distance"])
-    
-    
-    # Get top N sources based on sources_returned parameter
-    best_sources = [item["source"] for item in source_ranking[:sources_returned]]
+
     print('best_sources: ', best_sources)
-    
-    print(f"Using {k_value} docs for context, returning top {sources_returned} sources")
-    print(f"Distance scores: {[f'{item['distance']:.4f}' for item in source_ranking[:sources_returned]]}")
+    print(f"Using {len(documents)} reranked docs for context, returning top {sources_returned} sources")
+    print(f"Reranked order: {[item['rank'] for item in source_ranking]}")
 
     # 6️⃣ Build chat history
     history_text = ""
