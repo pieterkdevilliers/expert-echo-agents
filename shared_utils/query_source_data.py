@@ -189,6 +189,7 @@ class ChromaDBManager:
         
         resp = requests.post(url, json=payload, headers=collection_dict["headers"])
         resp.raise_for_status()
+        print('chroma query response: ', resp.json())
         return resp.json()
 
 
