@@ -19,3 +19,9 @@ class Query(BaseModel):
     chat_session_id: str
     scoreapp_report_text: Dict
     user_products_prompt: str
+
+class UserQuery(BaseModel):
+    """
+    User Query Structure - for re-phrasing
+    """
+    query: str
