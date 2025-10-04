@@ -291,7 +291,7 @@ async def search_db_advanced(
     
     
     # Get top N sources based on sources_returned parameter
-    best_sources = [item["source"] for item in source_ranking[:sources_returned]].unique()
+    best_sources = list(set([item["source"] for item in source_ranking[:sources_returned]]))
     print('best_sources: ', best_sources)
     
     print(f"Using {k_value} docs for context, returning top {sources_returned} sources")
