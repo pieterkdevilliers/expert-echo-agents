@@ -51,6 +51,6 @@ async def query_task_list_agent(query: str):
     
     print("Rephrased Query: ", result)
     
-    return result
+    return result.output
     
     
