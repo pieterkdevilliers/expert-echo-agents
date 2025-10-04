@@ -30,5 +30,5 @@ async def rephrase_user_query(query: UserQuery, authorized: bool = Depends(auth.
     
     result = await rephrase_agent.query_task_list_agent(query=query.query)
 
-    return result.output
+    return result
 
