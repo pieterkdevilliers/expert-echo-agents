@@ -3,6 +3,9 @@ import core.auth as auth
 from schemas.agent_schemas import Query, UserQuery
 import util_agents.rag_query_agent as rag_agent
 import util_agents.rephrase_user_query as rephrase_agent
+from fastapi.responses import StreamingResponse
+from agents.expert_agent import expert_agent
+import json
 
 
 router = APIRouter()
@@ -31,4 +34,17 @@ async def rephrase_user_query(query: UserQuery, authorized: bool = Depends(auth.
     result = await rephrase_agent.rephrase_user_query(query=query.query)
 
     return result
+
+
+@router.post("/agent-query")
+# async def query_agent(query: Query):
+async def query_agent(query: str):
+    """
+    Unified endpoint for all agent interactions (RAG, Calendar, etc.)
+    The agent decides which tool to use.
+    """
+    result = await expert_agent.run(deps=query)
+
+    return result
+
 
