@@ -41,9 +41,9 @@ rephrase_user_query_agent = Agent[QueryContext, str](
     Ensure the rephrased query retains the original intent while improving specificity.'''
 )
 
-async def query_task_list_agent(query: str):
+async def rephrase_user_query(query: str):
     """
-    Query the task list agent with user-specific tasks.
+    Rephrase the user query for better clarity and detail.
     """
     context = QueryContext(query=query)
     
