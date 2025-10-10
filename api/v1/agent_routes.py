@@ -28,7 +28,7 @@ async def rephrase_user_query(query: UserQuery, authorized: bool = Depends(auth.
     if not query.query:
         raise HTTPException(status_code=400, detail="Missing 'query' field")
     
-    result = await rephrase_agent.query_task_list_agent(query=query.query)
+    result = await rephrase_agent.rephrase_user_query(query=query.query)
 
     return result
 
