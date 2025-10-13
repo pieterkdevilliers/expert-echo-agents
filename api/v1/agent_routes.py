@@ -87,21 +87,14 @@ async def query_agent_endpoint(query: Query, authorized: bool = Depends(auth.ver
         user_products_prompt=query.user_products_prompt,
         sources=[]
     )
-
-    # 1️⃣ Create a new Agent per request using the detailed system prompt
-    agent = Agent(
-        "openai:gpt-4o",
-        deps_type=AgentDeps,
-        system_prompt=({deps.prompt_text})
-    )
+    deps.prompt_text = query.prompt  # detailed prompt from RepoA
 
     async def generate():
         full_text = ""
         best_sources = []
 
         try:
-            # 2️⃣ Stream the agent's response
-            async with agent.run_stream(query.query, deps=deps) as result:
+            async with expert_agent.run_stream(query.query, deps=deps) as result:
                 async for chunk in result.stream_text():
                     # chunk is cumulative → yield only new content
                     new_text = chunk[len(full_text):]
@@ -110,12 +103,10 @@ async def query_agent_endpoint(query: Query, authorized: bool = Depends(auth.ver
                     if new_text:
                         yield f"data: {json.dumps({'type': 'chunk', 'content': new_text})}\n\n"
 
-                # 3️⃣ If any sources were stored in deps, send them
                 if deps.sources:
                     best_sources = deps.sources
                     yield f"data: {json.dumps({'type': 'sources', 'content': best_sources})}\n\n"
 
-            # 4️⃣ Signal completion
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
         except Exception as e:
