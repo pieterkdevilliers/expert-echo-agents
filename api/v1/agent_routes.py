@@ -104,9 +104,8 @@ async def query_agent_endpoint(query: Query, authorized: bool = Depends(auth.ver
                         yield f"data: {json.dumps({'type': 'chunk', 'content': new_text})}\n\n"
 
                 # Optional: send sources if agent stored them
-                if hasattr(result, "metadata") and result.metadata.get("sources"):
-                    sources = result.metadata["sources"]
-                    yield f"data: {json.dumps({'type': 'sources', 'content': sources})}\n\n"
+                if deps.sources:
+                    yield f"data: {json.dumps({'type': 'sources', 'content': deps.sources})}\n\n"
 
             # Signal completion
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
