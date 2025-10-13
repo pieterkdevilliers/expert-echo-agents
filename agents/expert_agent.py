@@ -53,6 +53,7 @@ async def search_knowledge_base(ctx: RunContext[AgentDeps], search_query: str) -
     print(f"🧠 RAG Tool invoked with query: {search_query}")
     
     deps = ctx.deps
+    print("RAG Tool prompt: ", deps.prompt_text)
     full_response = ""
     sources = []
     error_msg = None
