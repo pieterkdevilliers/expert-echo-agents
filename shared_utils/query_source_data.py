@@ -214,11 +214,6 @@ async def search_db_advanced(
     """
     print('scoreapp text received in search action: ', scoreapp_report_text)
     print('user_products received in search action: ', user_products_prompt)
-
-    # Rephrase the user query for better specificity
-    rephrased_query = await rephrase_agent.rephrase_user_query(query)
-    print("Rephrased Query: ", rephrased_query)
-    query = rephrased_query or query  # Fallback to original if rephrasing fails
     
     # 1️⃣ Local environment
     if ENVIRONMENT == 'development' and isinstance(db, chromadb.Collection):
