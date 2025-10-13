@@ -73,7 +73,6 @@ async def rephrase_user_query(query: UserQuery, authorized: bool = Depends(auth.
 # ROUTER ENDPOINT WITH STREAMING SUPPORT
 # ==============================================================================
 
-
 @router.post("/query-agent")
 async def query_agent(request: Query, authorized: bool = Depends(auth.verify_api_key)):
     """
@@ -103,26 +102,38 @@ async def query_agent(request: Query, authorized: bool = Depends(auth.verify_api
         try:
             print("🤖 Starting agent stream...")
             
-            # Track sources to send at the end
+            # Track the full response text and any tool calls
+            full_text = ""
             sources = []
             
             async with expert_agent.run_stream(request.query, deps=deps) as result:
                 print("📡 Agent stream opened")
                 
+                # Stream text chunks as they arrive
                 async for chunk in result.stream_text():
-                    # Send text chunks as they arrive
-                    yield f"data: {json.dumps({'type': 'chunk', 'content': chunk})}\n\n"
+                    # chunk is cumulative, so we need to find only the new part
+                    new_text = chunk[len(full_text):]
+                    full_text = chunk
+                    
+                    if new_text:
+                        yield f"data: {json.dumps({'type': 'chunk', 'content': new_text})}\n\n"
                 
-                # After streaming completes, check if we have sources in the result
-                # The agent will have called the RAG tool and we can extract sources
-                final_result = await result
-                print(f"✅ Agent completed. Data: {final_result.data}")
+                print("📝 Text streaming complete")
                 
-                # Try to extract sources if available
-                if hasattr(final_result, 'data') and isinstance(final_result.data, dict):
-                    sources = final_result.data.get('sources', [])
+                # Now we can safely access the result data after streaming is done
+                # Check for tool calls that might have sources
+                for message in result.all_messages():
+                    if hasattr(message, 'parts'):
+                        for part in message.parts:
+                            # Check if this is a tool return with sources
+                            if hasattr(part, 'content') and isinstance(part.content, dict):
+                                if 'sources' in part.content and part.content.get('success'):
+                                    sources = part.content['sources']
+                                    break
                 
-                # Send sources if available
+                print(f"✅ Agent completed. Found {len(sources)} sources")
+                
+                # Send sources if we found any
                 if sources:
                     yield f"data: {json.dumps({'type': 'sources', 'content': sources})}\n\n"
             
@@ -132,6 +143,8 @@ async def query_agent(request: Query, authorized: bool = Depends(auth.verify_api
             
         except Exception as e:
             print(f"❌ Stream error: {str(e)}")
+            import traceback
+            traceback.print_exc()
             yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
     
     return StreamingResponse(

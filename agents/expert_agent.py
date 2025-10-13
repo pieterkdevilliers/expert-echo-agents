@@ -50,7 +50,7 @@ expert_agent = Agent(
 async def search_knowledge_base(
     ctx: RunContext[AgentDeps], 
     search_query: str
-) -> Dict[str, Any]:
+) -> str:
     """
     Search the knowledge base for relevant information.
     
@@ -58,7 +58,7 @@ async def search_knowledge_base(
         search_query: The specific query to search for in the knowledge base
     
     Returns:
-        Dictionary containing answer and sources from the knowledge base
+        A formatted string with the answer and sources
     """
     print(f"🧠 RAG Tool invoked with search_query: {search_query}")
     
@@ -100,27 +100,15 @@ async def search_knowledge_base(
                 break
         
         if error_msg:
-            return {
-                "success": False,
-                "error": error_msg,
-                "answer": "",
-                "sources": []
-            }
+            return f"Error searching knowledge base: {error_msg}"
         
-        return {
-            "success": True,
-            "answer": full_response,
-            "sources": sources
-        }
+        # Return just the answer - the agent will relay it
+        # Sources are already handled by the RAG system
+        return full_response
     
     except Exception as e:
         print(f"❌ RAG Tool error: {str(e)}")
-        return {
-            "success": False,
-            "error": f"Knowledge base search failed: {str(e)}",
-            "answer": "",
-            "sources": []
-        }
+        return f"Error searching knowledge base: {str(e)}"
 
 
 @expert_agent.tool()
