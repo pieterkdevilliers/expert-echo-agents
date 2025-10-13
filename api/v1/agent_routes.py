@@ -84,7 +84,8 @@ async def query_agent_endpoint(query: Query, authorized: bool = Depends(auth.ver
         temperature=query.temperature,
         chat_session_id=query.chat_session_id,
         scoreapp_report_text=query.scoreapp_report_text,
-        user_products_prompt=query.user_products_prompt
+        user_products_prompt=query.user_products_prompt,
+        sources=[]
     )
 
     async def generate():
