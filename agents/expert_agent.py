@@ -17,7 +17,7 @@ from shared_utils.query_source_data import (
     headers
 )
 
-
+ENVIRONMENT = os.environ.get('ENVIRONMENT')
 # Initialize ChromaDB Manager (singleton pattern)
 chroma_manager = ChromaDBManager(
     environment=ENVIRONMENT,
@@ -59,8 +59,8 @@ async def search_knowledge_base(ctx: RunContext[AgentDeps], search_query: str) -
 
     # Get the RAG DB for this account
     db = rag_agent.ChromaDBManager(
-        environment=deps.env or "prod",
-        chroma_endpoint=deps.chroma_endpoint,
+        environment=ENVIRONMENT or "prod",
+        chroma_endpoint=CHROMA_ENDPOINT,
         headers=deps.headers
     ).get_or_create_collection(
         account_unique_id=deps.account_unique_id,
