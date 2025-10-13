@@ -185,3 +185,47 @@ async def rag_direct(request: Query, authorized: bool = Depends(auth.verify_api_
     
     return StreamingResponse(generate(), media_type="text/event-stream")
 
+# ==============================================================================
+# DEBUGGING ENDPOINT
+# ==============================================================================
+
+@router.post("/test-agent")
+async def test_agent(request: Query, authorized: bool = Depends(auth.verify_api_key)):
+    """
+    Test endpoint to verify agent is working without streaming complexity.
+    """
+    deps = AgentDeps(
+        query=request.query,
+        prompt=request.prompt,
+        visitor_email=request.visitor_email,
+        visitor_uuid=request.visitor_uuid,
+        account_unique_id=request.account_unique_id,
+        chat_history=request.chat_history,
+        relevance_score=request.relevance_score,
+        k_value=request.k_value,
+        sources_returned=request.sources_returned,
+        temperature=request.temperature,
+        chat_session_id=request.chat_session_id,
+        scoreapp_report_text=request.scoreapp_report_text,
+        user_products_prompt=request.user_products_prompt
+    )
+    
+    try:
+        print("🧪 Testing agent...")
+        result = await expert_agent.run(request.query, deps=deps)
+        print(f"✅ Agent result: {result.data}")
+        
+        return {
+            "success": True,
+            "response": result.data,
+            "all_messages": [
+                {"role": msg.kind, "content": str(msg.content)} 
+                for msg in result.all_messages()
+            ]
+        }
+    except Exception as e:
+        print(f"❌ Agent test failed: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e)
+        }

@@ -3,7 +3,7 @@ from pydantic_ai import Agent, RunContext
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, AsyncGenerator
 from schemas.agent_schemas import AgentDeps
-import util_agents.rag_query_agent as rag_agent
+import shared_utils.query_source_data as rag_agent
 import os
 
 # Import your existing components
