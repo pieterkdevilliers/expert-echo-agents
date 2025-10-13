@@ -62,36 +62,52 @@ async def rephrase_user_query(query: UserQuery, authorized: bool = Depends(auth.
 # ==============================================================================
 
 
+
 @router.post("/query-agent")
-async def query_agent(request: Query, authorized: bool = Depends(auth.verify_api_key)):
+async def query_agent_endpoint(query: Query, authorized: bool = Depends(auth.verify_api_key)):
     """
-    Agentic endpoint: Streams AI responses using expert_agent.
-    Uses RAG as a tool internally, plus additional tools.
+    Agentic endpoint that streams the response back to RepoA (or any SSE client)
+    Uses expert_agent, which can call RAG as a tool
     """
-    if not request.query:
-        raise HTTPException(status_code=400, detail="Missing 'query' field")
+
+    # Convert Query to AgentDeps
+    deps = AgentDeps(
+        query=query.query,
+        prompt=query.prompt,
+        visitor_email=query.visitor_email,
+        visitor_uuid=query.visitor_uuid,
+        account_unique_id=query.account_unique_id,
+        chat_history=query.chat_history,
+        relevance_score=query.relevance_score,
+        k_value=query.k_value,
+        sources_returned=query.sources_returned,
+        temperature=query.temperature,
+        chat_session_id=query.chat_session_id,
+        scoreapp_report_text=query.scoreapp_report_text,
+        user_products_prompt=query.user_products_prompt
+    )
 
     async def generate():
         try:
-            previous_text = ""
+            full_text = ""
             sources = []
 
-            # Run the agent stream
-            async with expert_agent.run_stream(request.query, deps=request) as result:
+            # ✅ Wrap the agent stream fully inside the generator
+            async with expert_agent.run_stream(query.query, deps=deps) as result:
                 async for chunk in result.stream_text():
-                    # chunk is cumulative text → extract only new part
-                    new_text = chunk[len(previous_text):]
-                    previous_text = chunk
+                    # chunk is cumulative, yield only new text
+                    new_text = chunk[len(full_text):]
+                    full_text = chunk
 
                     if new_text:
                         yield f"data: {json.dumps({'type': 'chunk', 'content': new_text})}\n\n"
 
-                # Any sources returned by tools (like RAG)
-                sources = result.metadata.get("sources", [])
-                if sources:
+                # Optional: send sources if agent stored them
+                if hasattr(result, "metadata") and result.metadata.get("sources"):
+                    sources = result.metadata["sources"]
                     yield f"data: {json.dumps({'type': 'sources', 'content': sources})}\n\n"
 
-            # Completion signal
+            # Signal completion
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
         except Exception as e:
