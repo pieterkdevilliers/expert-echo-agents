@@ -94,7 +94,7 @@ async def query_agent_endpoint(query: Query, authorized: bool = Depends(auth.ver
             sources = []
 
             # ✅ Wrap the agent stream fully inside the generator
-            async with expert_agent.run_stream(query.query, deps=deps) as result:
+            async with expert_agent.run_stream(query.query, deps=deps, system_prompt=deps.prompt_text) as result:
                 async for chunk in result.stream_text():
                     # chunk is cumulative, yield only new text
                     new_text = chunk[len(full_text):]
