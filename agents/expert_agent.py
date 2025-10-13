@@ -45,39 +45,31 @@ expert_agent = Agent(
     ),
 )
 
-
 @expert_agent.tool()
-async def search_knowledge_base(
-    ctx: RunContext[AgentDeps], 
-    search_query: str
-) -> str:
+async def search_knowledge_base(ctx: RunContext[AgentDeps], search_query: str) -> str:
     """
-    Search the knowledge base for relevant information.
-    
-    Args:
-        search_query: The specific query to search for in the knowledge base
-    
-    Returns:
-        A formatted string with the answer and sources
+    Wrap the existing streaming RAG logic as a tool.
     """
-    print(f"🧠 RAG Tool invoked with search_query: {search_query}")
+    print(f"🧠 RAG Tool invoked with query: {search_query}")
     
     deps = ctx.deps
-    
-    # Get or create collection
-    db = chroma_manager.get_or_create_collection(
-        account_unique_id=deps.account_unique_id,
-        embedding_function=embedding_manager
-    )
-    
-    # Collect streaming results
     full_response = ""
     sources = []
     error_msg = None
+
+    # Get the RAG DB for this account
+    db = rag_agent.ChromaDBManager(
+        environment=deps.env or "prod",
+        chroma_endpoint=deps.chroma_endpoint,
+        headers=deps.headers
+    ).get_or_create_collection(
+        account_unique_id=deps.account_unique_id,
+        embedding_function=rag_agent.embedding_manager
+    )
     
     try:
         async for chunk in rag_agent.search_db_advanced(
-            manager=chroma_manager,
+            manager=None,  # You can pass your manager if needed
             db=db,
             query=search_query,
             relevance_score=deps.relevance_score,
@@ -98,17 +90,18 @@ async def search_knowledge_base(
             elif chunk["type"] == "error":
                 error_msg = chunk["content"]
                 break
-        
+
         if error_msg:
-            return f"Error searching knowledge base: {error_msg}"
+            return f"Error in RAG tool: {error_msg}"
         
-        # Return just the answer - the agent will relay it
-        # Sources are already handled by the RAG system
+        # Optionally: store sources in ctx if agent wants to use them later
+        ctx.metadata["sources"] = sources
+        
         return full_response
-    
+
     except Exception as e:
-        print(f"❌ RAG Tool error: {str(e)}")
-        return f"Error searching knowledge base: {str(e)}"
+        print(f"❌ RAG Tool error: {e}")
+        return f"Error in RAG tool: {str(e)}"
 
 
 @expert_agent.tool()

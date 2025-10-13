@@ -76,12 +76,10 @@ async def rephrase_user_query(query: UserQuery, authorized: bool = Depends(auth.
 @router.post("/query-agent")
 async def query_agent(request: Query, authorized: bool = Depends(auth.verify_api_key)):
     """
-    Agentic endpoint - the agent decides whether to use RAG or other tools.
-    Streams the response back to the client.
+    Agentic endpoint - agent decides whether to use RAG or other tools.
+    Streams response back to client via SSE.
     """
-    print(f"Query being sent for streaming: ", request)
-    
-    # Convert Query to AgentDeps
+    # Convert Query -> AgentDeps
     deps = AgentDeps(
         query=request.query,
         prompt=request.prompt,
@@ -97,56 +95,41 @@ async def query_agent(request: Query, authorized: bool = Depends(auth.verify_api
         scoreapp_report_text=request.scoreapp_report_text,
         user_products_prompt=request.user_products_prompt
     )
-    
+
     async def generate():
         try:
-            print("🤖 Starting agent stream...")
-            
-            # Track the full response text and any tool calls
             full_text = ""
             sources = []
-            
+
+            # Run the agent in streaming mode
             async with expert_agent.run_stream(request.query, deps=deps) as result:
-                print("📡 Agent stream opened")
-                
-                # Stream text chunks as they arrive
                 async for chunk in result.stream_text():
-                    # chunk is cumulative, so we need to find only the new part
+                    # Send only new content
                     new_text = chunk[len(full_text):]
                     full_text = chunk
-                    
                     if new_text:
                         yield f"data: {json.dumps({'type': 'chunk', 'content': new_text})}\n\n"
-                
-                print("📝 Text streaming complete")
-                
-                # Now we can safely access the result data after streaming is done
-                # Check for tool calls that might have sources
-                for message in result.all_messages():
-                    if hasattr(message, 'parts'):
-                        for part in message.parts:
-                            # Check if this is a tool return with sources
-                            if hasattr(part, 'content') and isinstance(part.content, dict):
-                                if 'sources' in part.content and part.content.get('success'):
-                                    sources = part.content['sources']
-                                    break
-                
-                print(f"✅ Agent completed. Found {len(sources)} sources")
-                
-                # Send sources if we found any
+
+                # Check if any tool returned sources
+                for msg in result.all_messages():
+                    if hasattr(msg, 'parts'):
+                        for part in msg.parts:
+                            if getattr(part, 'content', None) and isinstance(part.content, dict):
+                                if part.content.get("sources"):
+                                    sources = part.content["sources"]
+
+                # Send sources if found
                 if sources:
                     yield f"data: {json.dumps({'type': 'sources', 'content': sources})}\n\n"
-            
-            # Send completion signal
+
+            # Completion signal
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
-            print("🏁 Stream completed successfully")
-            
+
         except Exception as e:
-            print(f"❌ Stream error: {str(e)}")
             import traceback
             traceback.print_exc()
             yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
-    
+
     return StreamingResponse(
         generate(),
         media_type="text/event-stream",
@@ -156,7 +139,6 @@ async def query_agent(request: Query, authorized: bool = Depends(auth.verify_api
             "X-Accel-Buffering": "no",
         }
     )
-
 
 
 # ==============================================================================
