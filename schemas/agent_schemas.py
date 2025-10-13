@@ -40,6 +40,7 @@ class AgentDeps(BaseModel):
     sources_returned: int = 3
     scoreapp_report_text: Dict[str, Any] = {}
     user_products_prompt: str = ""
+    sources: List[str] = []
 
 
 class QueryRequest(BaseModel):
