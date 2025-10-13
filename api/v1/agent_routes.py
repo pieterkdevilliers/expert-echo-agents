@@ -38,11 +38,13 @@ async def rephrase_user_query(query: UserQuery, authorized: bool = Depends(auth.
 
 @router.post("/agent-query")
 # async def query_agent(query: Query):
-async def query_agent(query: str):
+async def query_agent(query: Query):
     """
     Unified endpoint for all agent interactions (RAG, Calendar, etc.)
     The agent decides which tool to use.
     """
+    rephrased_query = await rephrase_agent.rephrase_user_query(query=query.query)
+    print("Rephrased Query for Agent: ", rephrased_query)
     result = await expert_agent.run(deps=query)
 
     return result
