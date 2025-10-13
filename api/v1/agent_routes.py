@@ -57,68 +57,37 @@ async def rephrase_user_query(query: UserQuery, authorized: bool = Depends(auth.
     return result
 
 
-# @router.post("/agent-query")
-# # async def query_agent(query: Query):
-# async def query_agent(query: str):
-#     """
-#     Unified endpoint for all agent interactions (RAG, Calendar, etc.)
-#     The agent decides which tool to use.
-#     """
-#     result = await expert_agent.run(deps=query)
-
-#     return result
-
-
 # ==============================================================================
 # ROUTER ENDPOINT WITH STREAMING SUPPORT
 # ==============================================================================
 
+
 @router.post("/query-agent")
 async def query_agent(request: Query, authorized: bool = Depends(auth.verify_api_key)):
     """
-    Agentic endpoint - agent decides whether to use RAG or other tools.
-    Streams response back to client via SSE.
+    Agentic endpoint: Streams AI responses using expert_agent.
+    Uses RAG as a tool internally, plus additional tools.
     """
-    # Convert Query -> AgentDeps
-    deps = AgentDeps(
-        query=request.query,
-        prompt=request.prompt,
-        visitor_email=request.visitor_email,
-        visitor_uuid=request.visitor_uuid,
-        account_unique_id=request.account_unique_id,
-        chat_history=request.chat_history,
-        relevance_score=request.relevance_score,
-        k_value=request.k_value,
-        sources_returned=request.sources_returned,
-        temperature=request.temperature,
-        chat_session_id=request.chat_session_id,
-        scoreapp_report_text=request.scoreapp_report_text,
-        user_products_prompt=request.user_products_prompt
-    )
+    if not request.query:
+        raise HTTPException(status_code=400, detail="Missing 'query' field")
 
     async def generate():
         try:
-            full_text = ""
+            previous_text = ""
             sources = []
 
-            # Run the agent in streaming mode
-            async with expert_agent.run_stream(request.query, deps=deps) as result:
+            # Run the agent stream
+            async with expert_agent.run_stream(request.query, deps=request) as result:
                 async for chunk in result.stream_text():
-                    # Send only new content
-                    new_text = chunk[len(full_text):]
-                    full_text = chunk
+                    # chunk is cumulative text → extract only new part
+                    new_text = chunk[len(previous_text):]
+                    previous_text = chunk
+
                     if new_text:
                         yield f"data: {json.dumps({'type': 'chunk', 'content': new_text})}\n\n"
 
-                # Check if any tool returned sources
-                for msg in result.all_messages():
-                    if hasattr(msg, 'parts'):
-                        for part in msg.parts:
-                            if getattr(part, 'content', None) and isinstance(part.content, dict):
-                                if part.content.get("sources"):
-                                    sources = part.content["sources"]
-
-                # Send sources if found
+                # Any sources returned by tools (like RAG)
+                sources = result.metadata.get("sources", [])
                 if sources:
                     yield f"data: {json.dumps({'type': 'sources', 'content': sources})}\n\n"
 
@@ -126,8 +95,6 @@ async def query_agent(request: Query, authorized: bool = Depends(auth.verify_api
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
         except Exception as e:
-            import traceback
-            traceback.print_exc()
             yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
 
     return StreamingResponse(
@@ -139,88 +106,3 @@ async def query_agent(request: Query, authorized: bool = Depends(auth.verify_api
             "X-Accel-Buffering": "no",
         }
     )
-
-
-# ==============================================================================
-# ALTERNATIVE: Direct RAG endpoint (if you want to bypass the agent)
-# ==============================================================================
-
-@router.post("/rag-direct")
-async def rag_direct(request: Query, authorized: bool = Depends(auth.verify_api_key)):
-    """
-    Direct RAG query without agent orchestration.
-    Useful for backwards compatibility or specific RAG-only queries.
-    """
-    deps = AgentDeps(**request.dict())
-    
-    # Get collection
-    db = chroma_manager.get_or_create_collection(
-        account_unique_id=deps.account_unique_id,
-        embedding_function=embedding_manager
-    )
-    
-    async def generate():
-        
-        async for chunk in search_db_advanced(
-            manager=chroma_manager,
-            db=db,
-            query=request.query,
-            relevance_score=deps.relevance_score,
-            k_value=deps.k_value,
-            sources_returned=deps.sources_returned,
-            account_unique_id=deps.account_unique_id,
-            visitor_email=deps.visitor_email,
-            chat_history=deps.chat_history,
-            prompt_text=deps.prompt_text,
-            temperature=deps.temperature,
-            scoreapp_report_text=deps.scoreapp_report_text,
-            user_products_prompt=deps.user_products_prompt
-        ):
-            yield f"data: {json.dumps(chunk)}\n\n"
-    
-    return StreamingResponse(generate(), media_type="text/event-stream")
-
-# ==============================================================================
-# DEBUGGING ENDPOINT
-# ==============================================================================
-
-@router.post("/test-agent")
-async def test_agent(request: Query, authorized: bool = Depends(auth.verify_api_key)):
-    """
-    Test endpoint to verify agent is working without streaming complexity.
-    """
-    deps = AgentDeps(
-        query=request.query,
-        prompt=request.prompt,
-        visitor_email=request.visitor_email,
-        visitor_uuid=request.visitor_uuid,
-        account_unique_id=request.account_unique_id,
-        chat_history=request.chat_history,
-        relevance_score=request.relevance_score,
-        k_value=request.k_value,
-        sources_returned=request.sources_returned,
-        temperature=request.temperature,
-        chat_session_id=request.chat_session_id,
-        scoreapp_report_text=request.scoreapp_report_text,
-        user_products_prompt=request.user_products_prompt
-    )
-    
-    try:
-        print("🧪 Testing agent...")
-        result = await expert_agent.run(request.query, deps=deps)
-        print(f"✅ Agent result: {result.data}")
-        
-        return {
-            "success": True,
-            "response": result.data,
-            "all_messages": [
-                {"role": msg.kind, "content": str(msg.content)} 
-                for msg in result.all_messages()
-            ]
-        }
-    except Exception as e:
-        print(f"❌ Agent test failed: {str(e)}")
-        return {
-            "success": False,
-            "error": str(e)
-        }
