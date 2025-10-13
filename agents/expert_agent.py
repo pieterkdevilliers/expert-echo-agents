@@ -69,7 +69,7 @@ async def search_knowledge_base(ctx: RunContext[AgentDeps], search_query: str) -
     
     try:
         async for chunk in rag_agent.search_db_advanced(
-            manager=None,  # You can pass your manager if needed
+            manager=chroma_manager,
             db=db,
             query=search_query,
             relevance_score=deps.relevance_score,
