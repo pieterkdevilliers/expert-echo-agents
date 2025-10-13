@@ -95,7 +95,7 @@ async def search_knowledge_base(ctx: RunContext[AgentDeps], search_query: str) -
             return f"Error in RAG tool: {error_msg}"
         
         # Optionally: store sources in ctx if agent wants to use them later
-        ctx.metadata["sources"] = sources
+        ctx.deps.sources = sources
         
         return full_response
 
