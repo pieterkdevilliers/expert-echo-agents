@@ -1,19 +1,16 @@
 # agents/expert_agent.py
+import os
+from typing import Optional, Dict, Any
 from pydantic_ai import Agent, RunContext
-from pydantic import BaseModel
-from typing import Optional, Dict, Any, AsyncGenerator
 from schemas.agent_schemas import AgentDeps
 import shared_utils.query_source_data as rag_agent
-import os
+
 
 # Import your existing components
 from shared_utils.query_source_data import (
     ChromaDBManager,
-    embedding_manager,
-    CHAT_MODEL_NAME,
     ENVIRONMENT,
     CHROMA_ENDPOINT,
-    CHROMA_SERVER_AUTHN_CREDENTIALS,
     headers
 )
 

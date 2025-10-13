@@ -62,7 +62,6 @@ async def rephrase_user_query(query: UserQuery, authorized: bool = Depends(auth.
 # ROUTER ENDPOINT WITH STREAMING SUPPORT
 # ==============================================================================
 
-
 @router.post("/query-agent")
 async def query_agent_endpoint(query: Query, authorized: bool = Depends(auth.verify_api_key)):
     """
@@ -88,13 +87,17 @@ async def query_agent_endpoint(query: Query, authorized: bool = Depends(auth.ver
         sources=[]
     )
 
-    print('Tools: ', expert_agent.tool)
     async def generate():
         full_text = ""
         best_sources = []
 
         try:
-            async with expert_agent.run_stream(query.query, deps=deps) as result:
+            # ✅ Dynamically override the system prompt for this run
+            async with expert_agent.run_stream(
+                deps.query,
+                deps=deps,
+                model_settings={"system_prompt": deps.prompt_text or None}
+            ) as result:
                 async for chunk in result.stream_text():
                     # chunk is cumulative → yield only new content
                     new_text = chunk[len(full_text):]
