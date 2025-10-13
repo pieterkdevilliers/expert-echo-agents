@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 
 class Query(BaseModel):
@@ -25,3 +25,33 @@ class UserQuery(BaseModel):
     User Query Structure - for re-phrasing
     """
     query: str
+
+
+# Define dependencies structure
+class AgentDeps(BaseModel):
+    query: str
+    account_unique_id: str
+    visitor_email: str
+    chat_history: Optional[list] = None
+    prompt_text: Optional[str] = None
+    temperature: float = 0.2
+    k_value: int = 7
+    relevance_score: float = 0.7
+    sources_returned: int = 3
+    scoreapp_report_text: Dict[str, Any] = {}
+    user_products_prompt: str = ""
+
+
+class QueryRequest(BaseModel):
+    query: str
+    account_unique_id: str
+    visitor_email: str
+    chat_history: Optional[list] = None
+    prompt_text: Optional[str] = None
+    temperature: float = 0.2
+    k_value: int = 7
+    relevance_score: float = 0.7
+    sources_returned: int = 3
+    scoreapp_report_text: Dict[str, Any] = {}
+    user_products_prompt: str = ""
+    stream: bool = True  # Enable streaming by default

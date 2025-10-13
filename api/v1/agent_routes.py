@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
+from typing import Optional, Dict, Any
+from pydantic import BaseModel
 import core.auth as auth
-from schemas.agent_schemas import Query, UserQuery
+from schemas.agent_schemas import Query, UserQuery, QueryRequest, AgentDeps
 import util_agents.rag_query_agent as rag_agent
+from shared_utils.query_source_data import search_db_advanced
 import util_agents.rephrase_user_query as rephrase_agent
 from fastapi.responses import StreamingResponse
 from agents.expert_agent import expert_agent
@@ -9,6 +12,24 @@ import json
 
 
 router = APIRouter()
+
+# Import your existing components
+from shared_utils.query_source_data import (
+    ChromaDBManager,
+    embedding_manager,
+    CHAT_MODEL_NAME,
+    ENVIRONMENT,
+    CHROMA_ENDPOINT,
+    CHROMA_SERVER_AUTHN_CREDENTIALS,
+    headers
+)
+
+# Initialize ChromaDB Manager (singleton pattern)
+chroma_manager = ChromaDBManager(
+    environment=ENVIRONMENT,
+    chroma_endpoint=CHROMA_ENDPOINT,
+    headers=headers
+)
 
 
 @router.post("/query")
@@ -36,15 +57,134 @@ async def rephrase_user_query(query: UserQuery, authorized: bool = Depends(auth.
     return result
 
 
+# @router.post("/agent-query")
+# # async def query_agent(query: Query):
+# async def query_agent(query: str):
+#     """
+#     Unified endpoint for all agent interactions (RAG, Calendar, etc.)
+#     The agent decides which tool to use.
+#     """
+#     result = await expert_agent.run(deps=query)
+
+#     return result
+
+
+# ==============================================================================
+# ROUTER ENDPOINT WITH STREAMING SUPPORT
+# ==============================================================================
+
+
 @router.post("/agent-query")
-# async def query_agent(query: Query):
-async def query_agent(query: str):
+async def query_agent(request: Query, authorized: bool = Depends(auth.verify_api_key)):
     """
-    Unified endpoint for all agent interactions (RAG, Calendar, etc.)
-    The agent decides which tool to use.
+    Unified endpoint for all agent interactions.
+    The agent decides which tool to use based on the query.
     """
-    result = await expert_agent.run(deps=query)
+    
+    deps = AgentDeps(**request.dict())
+    
+    if request.stream:
+        # Return streaming response
+        async def generate():
+            try:
+                async with expert_agent.run_stream(request.query, deps=deps) as result:
+                    async for chunk in result.stream_text():
+                        yield f"data: {json.dumps({'type': 'text', 'content': chunk})}\n\n"
+                
+                # Send completion
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                
+            except Exception as e:
+                yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
+        
+        return StreamingResponse(
+            generate(),
+            media_type="text/event-stream"
+        )
+    
+    else:
+        # Return complete response
+        try:
+            result = await expert_agent.run(request.query, deps=deps)
+            return {
+                "success": True,
+                "response": result.data,
+                "messages": result.all_messages()
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e)
+            }
 
-    return result
 
+# ==============================================================================
+# ALTERNATIVE: Direct RAG endpoint (if you want to bypass the agent)
+# ==============================================================================
 
+@router.post("/rag-direct")
+async def rag_direct(request: Query, authorized: bool = Depends(auth.verify_api_key)):
+    """
+    Direct RAG query without agent orchestration.
+    Useful for backwards compatibility or specific RAG-only queries.
+    """
+    deps = AgentDeps(**request.dict())
+    
+    # Get collection
+    db = chroma_manager.get_or_create_collection(
+        account_unique_id=deps.account_unique_id,
+        embedding_function=embedding_manager
+    )
+    
+    if request.stream:
+        async def generate():
+            
+            async for chunk in search_db_advanced(
+                manager=chroma_manager,
+                db=db,
+                query=request.query,
+                relevance_score=deps.relevance_score,
+                k_value=deps.k_value,
+                sources_returned=deps.sources_returned,
+                account_unique_id=deps.account_unique_id,
+                visitor_email=deps.visitor_email,
+                chat_history=deps.chat_history,
+                prompt_text=deps.prompt_text,
+                temperature=deps.temperature,
+                scoreapp_report_text=deps.scoreapp_report_text,
+                user_products_prompt=deps.user_products_prompt
+            ):
+                yield f"data: {json.dumps(chunk)}\n\n"
+        
+        return StreamingResponse(generate(), media_type="text/event-stream")
+    
+    else:
+        # Collect all chunks for non-streaming response
+        full_response = ""
+        sources = []
+        
+        async for chunk in search_db_advanced(
+            manager=chroma_manager,
+            db=db,
+            query=request.query,
+            relevance_score=deps.relevance_score,
+            k_value=deps.k_value,
+            sources_returned=deps.sources_returned,
+            account_unique_id=deps.account_unique_id,
+            visitor_email=deps.visitor_email,
+            chat_history=deps.chat_history,
+            prompt_text=deps.prompt_text,
+            temperature=deps.temperature,
+            scoreapp_report_text=deps.scoreapp_report_text,
+            user_products_prompt=deps.user_products_prompt
+        ):
+            if chunk["type"] == "chunk":
+                full_response += chunk["content"]
+            elif chunk["type"] == "sources":
+                sources = chunk["content"]
+        
+        return {
+            "success": True,
+            "answer": full_response,
+            "sources": sources
+        }

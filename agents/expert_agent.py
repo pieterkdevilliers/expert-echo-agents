@@ -1,30 +1,137 @@
 # agents/expert_agent.py
 from pydantic_ai import Agent, RunContext
-from tools.rag_tool import RAGTool
-# from tools.calendar_tool import CalendarTool  # future
+from pydantic import BaseModel
+from typing import Optional, Dict, Any, AsyncGenerator
+from schemas.agent_schemas import AgentDeps
 import os
 
+# Import your existing components
+from shared_utils.query_source_data import (
+    ChromaDBManager,
+    embedding_manager,
+    CHAT_MODEL_NAME,
+    ENVIRONMENT,
+    CHROMA_ENDPOINT,
+    CHROMA_SERVER_AUTHN_CREDENTIALS,
+    headers
+)
 
+
+# Initialize ChromaDB Manager (singleton pattern)
+chroma_manager = ChromaDBManager(
+    environment=ENVIRONMENT,
+    chroma_endpoint=CHROMA_ENDPOINT,
+    headers=headers
+)
+
+
+# Create the expert agent
 expert_agent = Agent(
     "openai:gpt-4o",
-    deps_type=str,
+    deps_type=AgentDeps,
     system_prompt=(
-        """You are a helpful assistant with two tools:
-        1. RAG Tool — for answering knowledge-based queries.
-        2. Calendar Tool — for scheduling and managing events.
-        Always use the RAG Tool for information retrieval tasks.
-        Use the Calendar Tool for any scheduling-related queries.
-        Be sure to call the appropriate tool based on the user's request."""
+        """You are an intelligent assistant with access to multiple tools:
+        
+        1. **RAG Tool** — Search and retrieve information from the knowledge base
+        2. **Calendar Tool** — Schedule and manage calendar events
+        
+        Guidelines:
+        - Use the RAG Tool for any informational queries, questions about products, services, or knowledge base content
+        - Use the Calendar Tool for scheduling, availability checks, or event management
+        - You can use multiple tools in sequence if needed
+        - Always provide clear, helpful responses based on tool outputs
+        """
     ),
 )
 
-@expert_agent.tool()
-async def rag_tool(ctx: RunContext[str]) -> str:
-    print("🧠 RAG Tool invoked with query:", ctx.deps)
-    return f"RAG Tool still under construction - not ready to use. {ctx.deps}"
 
 @expert_agent.tool()
-async def calendar_tool(ctx: RunContext[str]) -> str:
-    print("📅 Calendar Tool invoked with query:", ctx.deps)
-    # return f"Calendar Tool still under construction - not ready to use. {ctx.deps}"
-    return {"available_slots": ["2025-10-13 10:00", "2025-10-15 14:00"]}
+async def rag_search(ctx: RunContext[AgentDeps], search_query: str) -> Dict[str, Any]:
+    """
+    Search the knowledge base using RAG.
+    
+    Args:
+        search_query: The query to search for in the knowledge base
+    
+    Returns:
+        Dictionary containing the answer and sources
+    """
+    print(f"🧠 RAG Tool invoked with query: {search_query}")
+    
+    deps = ctx.deps
+    
+    # Get or create collection
+    db = chroma_manager.get_or_create_collection(
+        account_unique_id=deps.account_unique_id,
+        embedding_function=embedding_manager
+    )
+    
+    # Import the search function
+    from shared_utils.query_source_data import search_db_advanced
+    
+    # Collect streaming results
+    full_response = ""
+    sources = []
+    
+    try:
+        async for chunk in search_db_advanced(
+            manager=chroma_manager,
+            db=db,
+            query=search_query,
+            relevance_score=deps.relevance_score,
+            k_value=deps.k_value,
+            sources_returned=deps.sources_returned,
+            account_unique_id=deps.account_unique_id,
+            visitor_email=deps.visitor_email,
+            chat_history=deps.chat_history,
+            prompt_text=deps.prompt_text,
+            temperature=deps.temperature,
+            scoreapp_report_text=deps.scoreapp_report_text,
+            user_products_prompt=deps.user_products_prompt
+        ):
+            if chunk["type"] == "chunk":
+                full_response += chunk["content"]
+            elif chunk["type"] == "sources":
+                sources = chunk["content"]
+            elif chunk["type"] == "error":
+                return {
+                    "success": False,
+                    "error": chunk["content"]
+                }
+        
+        return {
+            "success": True,
+            "answer": full_response,
+            "sources": sources
+        }
+    
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"RAG search failed: {str(e)}"
+        }
+
+
+@expert_agent.tool()
+async def calendar_search(ctx: RunContext[AgentDeps], date_range: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Check calendar availability and manage events.
+    
+    Args:
+        date_range: Optional date range to check (e.g., "next week", "October 15-20")
+    
+    Returns:
+        Dictionary containing available slots
+    """
+    print(f"📅 Calendar Tool invoked with date_range: {date_range}")
+    
+    # Placeholder for calendar integration
+    return {
+        "success": True,
+        "available_slots": [
+            "2025-10-13 10:00",
+            "2025-10-15 14:00",
+            "2025-10-16 09:00"
+        ],
+        "message": "Calendar integration ready for implementation"
+    }
