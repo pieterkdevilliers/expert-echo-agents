@@ -61,7 +61,7 @@ async def search_knowledge_base(ctx: RunContext[AgentDeps], search_query: str) -
     db = rag_agent.ChromaDBManager(
         environment=ENVIRONMENT or "prod",
         chroma_endpoint=CHROMA_ENDPOINT,
-        headers=deps.headers
+        headers=headers
     ).get_or_create_collection(
         account_unique_id=deps.account_unique_id,
         embedding_function=rag_agent.embedding_manager
