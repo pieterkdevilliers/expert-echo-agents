@@ -78,7 +78,7 @@ async def search_knowledge_base(ctx: RunContext[AgentDeps], search_query: str) -
             account_unique_id=deps.account_unique_id,
             visitor_email=deps.visitor_email,
             chat_history=deps.chat_history,
-            prompt_text=deps.prompt,
+            prompt_text=deps.prompt_text,
             temperature=deps.temperature,
             scoreapp_report_text=deps.scoreapp_report_text,
             user_products_prompt=deps.user_products_prompt
