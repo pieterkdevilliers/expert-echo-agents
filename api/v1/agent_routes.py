@@ -83,39 +83,23 @@ async def query_agent(request: Query, authorized: bool = Depends(auth.verify_api
     
     deps = AgentDeps(**request.dict())
     
-    if request.stream:
-        # Return streaming response
-        async def generate():
-            try:
-                async with expert_agent.run_stream(request.query, deps=deps) as result:
-                    async for chunk in result.stream_text():
-                        yield f"data: {json.dumps({'type': 'text', 'content': chunk})}\n\n"
-                
-                # Send completion
-                yield f"data: {json.dumps({'type': 'done'})}\n\n"
-                
-            except Exception as e:
-                yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
-        
-        return StreamingResponse(
-            generate(),
-            media_type="text/event-stream"
-        )
-    
-    else:
-        # Return complete response
+    async def generate():
         try:
-            result = await expert_agent.run(request.query, deps=deps)
-            return {
-                "success": True,
-                "response": result.data,
-                "messages": result.all_messages()
-            }
+            async with expert_agent.run_stream(request.query, deps=deps) as result:
+                async for chunk in result.stream_text():
+                    yield f"data: {json.dumps({'type': 'text', 'content': chunk})}\n\n"
+            
+            # Send completion
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            
         except Exception as e:
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
+    
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream"
+    )
+
 
 
 # ==============================================================================
@@ -136,32 +120,7 @@ async def rag_direct(request: Query, authorized: bool = Depends(auth.verify_api_
         embedding_function=embedding_manager
     )
     
-    if request.stream:
-        async def generate():
-            
-            async for chunk in search_db_advanced(
-                manager=chroma_manager,
-                db=db,
-                query=request.query,
-                relevance_score=deps.relevance_score,
-                k_value=deps.k_value,
-                sources_returned=deps.sources_returned,
-                account_unique_id=deps.account_unique_id,
-                visitor_email=deps.visitor_email,
-                chat_history=deps.chat_history,
-                prompt_text=deps.prompt_text,
-                temperature=deps.temperature,
-                scoreapp_report_text=deps.scoreapp_report_text,
-                user_products_prompt=deps.user_products_prompt
-            ):
-                yield f"data: {json.dumps(chunk)}\n\n"
-        
-        return StreamingResponse(generate(), media_type="text/event-stream")
-    
-    else:
-        # Collect all chunks for non-streaming response
-        full_response = ""
-        sources = []
+    async def generate():
         
         async for chunk in search_db_advanced(
             manager=chroma_manager,
@@ -178,13 +137,7 @@ async def rag_direct(request: Query, authorized: bool = Depends(auth.verify_api_
             scoreapp_report_text=deps.scoreapp_report_text,
             user_products_prompt=deps.user_products_prompt
         ):
-            if chunk["type"] == "chunk":
-                full_response += chunk["content"]
-            elif chunk["type"] == "sources":
-                sources = chunk["content"]
-        
-        return {
-            "success": True,
-            "answer": full_response,
-            "sources": sources
-        }
+            yield f"data: {json.dumps(chunk)}\n\n"
+    
+    return StreamingResponse(generate(), media_type="text/event-stream")
+
