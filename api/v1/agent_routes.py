@@ -74,30 +74,74 @@ async def rephrase_user_query(query: UserQuery, authorized: bool = Depends(auth.
 # ==============================================================================
 
 
-@router.post("/agent-query")
+@router.post("/query-agent")
 async def query_agent(request: Query, authorized: bool = Depends(auth.verify_api_key)):
     """
-    Unified endpoint for all agent interactions.
-    The agent decides which tool to use based on the query.
+    Agentic endpoint - the agent decides whether to use RAG or other tools.
+    Streams the response back to the client.
     """
+    print(f"Query being sent for streaming: ", request)
     
-    deps = AgentDeps(**request.dict())
+    # Convert Query to AgentDeps
+    deps = AgentDeps(
+        query=request.query,
+        prompt=request.prompt,
+        visitor_email=request.visitor_email,
+        visitor_uuid=request.visitor_uuid,
+        account_unique_id=request.account_unique_id,
+        chat_history=request.chat_history,
+        relevance_score=request.relevance_score,
+        k_value=request.k_value,
+        sources_returned=request.sources_returned,
+        temperature=request.temperature,
+        chat_session_id=request.chat_session_id,
+        scoreapp_report_text=request.scoreapp_report_text,
+        user_products_prompt=request.user_products_prompt
+    )
     
     async def generate():
         try:
-            async with expert_agent.run_stream(request.query, deps=deps) as result:
-                async for chunk in result.stream_text():
-                    yield f"data: {json.dumps({'type': 'text', 'content': chunk})}\n\n"
+            print("🤖 Starting agent stream...")
             
-            # Send completion
+            # Track sources to send at the end
+            sources = []
+            
+            async with expert_agent.run_stream(request.query, deps=deps) as result:
+                print("📡 Agent stream opened")
+                
+                async for chunk in result.stream_text():
+                    # Send text chunks as they arrive
+                    yield f"data: {json.dumps({'type': 'chunk', 'content': chunk})}\n\n"
+                
+                # After streaming completes, check if we have sources in the result
+                # The agent will have called the RAG tool and we can extract sources
+                final_result = await result
+                print(f"✅ Agent completed. Data: {final_result.data}")
+                
+                # Try to extract sources if available
+                if hasattr(final_result, 'data') and isinstance(final_result.data, dict):
+                    sources = final_result.data.get('sources', [])
+                
+                # Send sources if available
+                if sources:
+                    yield f"data: {json.dumps({'type': 'sources', 'content': sources})}\n\n"
+            
+            # Send completion signal
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            print("🏁 Stream completed successfully")
             
         except Exception as e:
+            print(f"❌ Stream error: {str(e)}")
             yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
     
     return StreamingResponse(
         generate(),
-        media_type="text/event-stream"
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
     )
 
 

@@ -3,6 +3,7 @@ from pydantic_ai import Agent, RunContext
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, AsyncGenerator
 from schemas.agent_schemas import AgentDeps
+import util_agents.rag_query_agent as rag_agent
 import os
 
 # Import your existing components
@@ -46,17 +47,20 @@ expert_agent = Agent(
 
 
 @expert_agent.tool()
-async def rag_search(ctx: RunContext[AgentDeps], search_query: str) -> Dict[str, Any]:
+async def search_knowledge_base(
+    ctx: RunContext[AgentDeps], 
+    search_query: str
+) -> Dict[str, Any]:
     """
-    Search the knowledge base using RAG.
+    Search the knowledge base for relevant information.
     
     Args:
-        search_query: The query to search for in the knowledge base
+        search_query: The specific query to search for in the knowledge base
     
     Returns:
-        Dictionary containing the answer and sources
+        Dictionary containing answer and sources from the knowledge base
     """
-    print(f"🧠 RAG Tool invoked with query: {search_query}")
+    print(f"🧠 RAG Tool invoked with search_query: {search_query}")
     
     deps = ctx.deps
     
@@ -66,15 +70,13 @@ async def rag_search(ctx: RunContext[AgentDeps], search_query: str) -> Dict[str,
         embedding_function=embedding_manager
     )
     
-    # Import the search function
-    from shared_utils.query_source_data import search_db_advanced
-    
     # Collect streaming results
     full_response = ""
     sources = []
+    error_msg = None
     
     try:
-        async for chunk in search_db_advanced(
+        async for chunk in rag_agent.search_db_advanced(
             manager=chroma_manager,
             db=db,
             query=search_query,
@@ -84,7 +86,7 @@ async def rag_search(ctx: RunContext[AgentDeps], search_query: str) -> Dict[str,
             account_unique_id=deps.account_unique_id,
             visitor_email=deps.visitor_email,
             chat_history=deps.chat_history,
-            prompt_text=deps.prompt_text,
+            prompt_text=deps.prompt,
             temperature=deps.temperature,
             scoreapp_report_text=deps.scoreapp_report_text,
             user_products_prompt=deps.user_products_prompt
@@ -94,10 +96,16 @@ async def rag_search(ctx: RunContext[AgentDeps], search_query: str) -> Dict[str,
             elif chunk["type"] == "sources":
                 sources = chunk["content"]
             elif chunk["type"] == "error":
-                return {
-                    "success": False,
-                    "error": chunk["content"]
-                }
+                error_msg = chunk["content"]
+                break
+        
+        if error_msg:
+            return {
+                "success": False,
+                "error": error_msg,
+                "answer": "",
+                "sources": []
+            }
         
         return {
             "success": True,
@@ -106,9 +114,12 @@ async def rag_search(ctx: RunContext[AgentDeps], search_query: str) -> Dict[str,
         }
     
     except Exception as e:
+        print(f"❌ RAG Tool error: {str(e)}")
         return {
             "success": False,
-            "error": f"RAG search failed: {str(e)}"
+            "error": f"Knowledge base search failed: {str(e)}",
+            "answer": "",
+            "sources": []
         }
 
 
