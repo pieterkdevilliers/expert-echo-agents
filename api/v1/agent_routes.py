@@ -87,8 +87,8 @@ async def query_agent_endpoint(query: Query, authorized: bool = Depends(auth.ver
         user_products_prompt=query.user_products_prompt,
         sources=[]
     )
-    deps.prompt_text = query.prompt  # detailed prompt from RepoA
 
+    print('Tools: ', expert_agent.tool)
     async def generate():
         full_text = ""
         best_sources = []
