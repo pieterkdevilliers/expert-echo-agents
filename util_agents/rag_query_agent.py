@@ -32,7 +32,7 @@ async def query_rag_query_agent(query: Query):
     """
     Streaming RAG query endpoint (replacing non-streaming version)
     """
-    print('received query: ', query)
+    print('received query inside query_rag_query_agent: ', query)
     
     manager = rag_agent.ChromaDBManager(
         environment=ENVIRONMENT,
