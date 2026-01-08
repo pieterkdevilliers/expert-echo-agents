@@ -38,7 +38,7 @@ def get_openai_embeddings(texts: List[str], model: str = "text-embedding-3-small
 
 
 class OpenAIEmbeddingManager:
-    def __init__(self, model: str = "text-embedding-3-small"):
+    def __init__(self, model: str = "text-embedding-3-large"):
         self.model = model
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self._dimension = None
@@ -292,6 +292,7 @@ async def search_db_advanced(
     
     print(f"Using {k_value} docs for context, returning top {sources_returned} sources")
     print(f"Distance scores: {[f'{item['distance']:.4f}' for item in source_ranking[:sources_returned]]}")
+    print(f"Distance scores - Best Sources: {[f'{item['distance']:.4f}' for item in source_ranking]}")
 
     # 6️⃣ Build chat history
     history_text = ""

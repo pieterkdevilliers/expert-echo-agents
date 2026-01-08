@@ -44,6 +44,8 @@ async def query_rag_query_agent(query: Query):
         query.account_unique_id,
         embedding_manager
     )
+
+    print('**********prepared_db inside query_rag_query_agent: ', prepared_db)
     
     async def generate():
         try:
