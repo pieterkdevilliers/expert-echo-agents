@@ -38,7 +38,7 @@ def get_openai_embeddings(texts: List[str], model: str = "text-embedding-3-small
 
 
 class OpenAIEmbeddingManager:
-    def __init__(self, model: str = "text-embedding-3-small"):
+    def __init__(self, model: str = "text-embedding-3-large"):
         self.model = model
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self._dimension = None
