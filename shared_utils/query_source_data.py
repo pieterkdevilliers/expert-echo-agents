@@ -25,36 +25,33 @@ headers = {
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Direct embedding function (simplified approach)
-def get_openai_embeddings(texts: List[str], model: str = "text-embedding-3-small") -> List[List[float]]:
+def get_openai_embeddings(texts: List[str], model: str = "text-embedding-3-large", dimensions: int = 1536) -> List[List[float]]:
     """Get embeddings from OpenAI directly"""
     if not isinstance(texts, list):
         texts = [texts]
     
     response = openai_client.embeddings.create(
         input=texts,
-        model=model
+        model=model,
+        dimensions=dimensions
     )
     return [embedding.embedding for embedding in response.data]
 
 
 class OpenAIEmbeddingManager:
-    def __init__(self, model: str = "text-embedding-3-large"):
+    def __init__(self, model: str = "text-embedding-3-large", dimensions: int = 1536):
         self.model = model
+        self.dimensions = dimensions
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self._dimension = None
 
-    # ✅ Required Chroma interface for batch embeddings
     def __call__(self, input: List[str]) -> List[List[float]]:
-        """
-        Embed a batch of texts.
-        Chroma calls this for documents or queries.
-        """
-        # Ensure all inputs are strings
         input = [str(i) for i in input]
 
         response = self.client.embeddings.create(
             input=input,
-            model=self.model
+            model=self.model,
+            dimensions=self.dimensions
         )
         embeddings = [e.embedding for e in response.data]
 
