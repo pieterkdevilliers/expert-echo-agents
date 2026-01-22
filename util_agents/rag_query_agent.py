@@ -16,13 +16,9 @@ if os.getenv("LOGFIRE_ENABLED", "false").lower() == "true":
 else:
     logfire.instrument_pydantic_ai()
 
-CHROMA_ENDPOINT = os.environ.get('CHROMA_ENDPOINT')
 ENVIRONMENT = os.environ.get('ENVIRONMENT')
-CHROMA_SERVER_AUTHN_CREDENTIALS = os.environ.get('CHROMA_SERVER_AUTHN_CREDENTIALS')
-headers = {
-    'X-Chroma-Token': CHROMA_SERVER_AUTHN_CREDENTIALS,
-    'Content-Type': 'application/json'
-}
+api_key = os.environ.get('PINECONE_EXPERTECHO_API_KEY')
+index_name = os.environ.get('PINECONE_INDEX_NAME')
 
 embedding_manager = rag_agent.OpenAIEmbeddingManager()
 
@@ -33,16 +29,15 @@ async def query_rag_query_agent(query: Query):
     Streaming RAG query endpoint (replacing non-streaming version)
     """
     print('received query inside query_rag_query_agent: ', query)
-    
-    manager = rag_agent.ChromaDBManager(
+
+    manager = rag_agent.PineconeDBManager(
         environment=ENVIRONMENT,
-        chroma_endpoint=CHROMA_ENDPOINT,
-        headers=headers,
+        api_key=api_key,
+        index_name=index_name,
     )
 
-    prepared_db = manager.get_or_create_collection(
-        query.account_unique_id,
-        embedding_manager
+    prepared_db = manager.get_or_create_namespace(
+        query.account_unique_id
     )
 
     print('**********prepared_db inside query_rag_query_agent: ', prepared_db)

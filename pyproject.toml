@@ -18,6 +18,7 @@ dependencies = [
     "gunicorn",
     "openai",
     "chromadb>=1.1.0",
+    "pinecone>=8.0.0",
 ]
 
 [project.scripts]

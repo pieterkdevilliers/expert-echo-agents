@@ -7,6 +7,7 @@ from openai import OpenAI
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 from dotenv import load_dotenv
+from pinecone import Pinecone
 
 load_dotenv()
 
@@ -90,6 +91,40 @@ embedding_manager = OpenAIEmbeddingManager()
 ########################################
 # Previously prepare_db
 ########################################
+
+class PineconeDBManager:
+    def __init__(self, environment: str, api_key: str = None, index_name: str = None):
+        self.environment = environment
+        self.api_key = api_key or os.environ.get('PINECONE_EXPERTECHO_API_KEY')
+        self.index_name = index_name or os.environ.get('PINECONE_INDEX_NAME')
+        if not self.api_key:
+            raise ValueError("PINECONE_EXPERTECHO_API_KEY not set")
+        if not self.index_name:
+            raise ValueError("PINECONE_INDEX_NAME not set")
+
+    def get_or_create_namespace(self, account_unique_id: str):
+        """Get or 'create' (namespaces auto-create on upsert) a namespace handle.
+        Returns a dict with index and namespace info."""
+        print(f"Connecting to Pinecone index '{self.index_name}'...")
+        pc = Pinecone(api_key=self.api_key)
+        index = pc.Index(self.index_name)
+        print("Successfully connected to Pinecone.")
+
+        namespace = f"account-{account_unique_id}"
+
+        # Namespaces don't need explicit creation – check stats to verify existence
+        try:
+            stats = index.describe_index_stats()
+            namespace_exists = namespace in stats.get('namespaces', {})
+        except Exception as e:
+            raise RuntimeError(f"Error checking index: {str(e)}")
+
+        return {
+            "type": "remote",  # Always remote for Pinecone
+            "namespace": namespace,
+            "index": index,    # The actual Pinecone Index object for queries
+            "exists": namespace_exists
+        }
 
 class ChromaDBManager:
     def __init__(self, environment: str, chroma_endpoint: str = None, headers: dict = None):
