@@ -26,7 +26,7 @@ headers = {
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Direct embedding function (simplified approach)
-def get_openai_embeddings(texts: List[str], model: str = "text-embedding-3-large", dimensions: int = 1536) -> List[List[float]]:
+def get_openai_embeddings(texts: List[str], model: str = "text-embedding-3-large", dimensions: int = 3072) -> List[List[float]]:
     """Get embeddings from OpenAI directly"""
     if not isinstance(texts, list):
         texts = [texts]
@@ -40,7 +40,7 @@ def get_openai_embeddings(texts: List[str], model: str = "text-embedding-3-large
 
 
 class OpenAIEmbeddingManager:
-    def __init__(self, model: str = "text-embedding-3-large", dimensions: int = 1536):
+    def __init__(self, model: str = "text-embedding-3-large", dimensions: int = 3072):
         self.model = model
         self.dimensions = dimensions
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
