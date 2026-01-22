@@ -265,23 +265,37 @@ async def search_db_advanced(
     # 2️⃣ Remote environment
     elif isinstance(db, dict) and db.get("type") == "remote":
         try:
-            results = manager.query_remote_collection(
-                db,
-                [query],
-                n_results=k_value
+            # Get the Pinecone index and namespace from the db dict
+            index = db["index"]
+            namespace = db["namespace"]
+
+            # Embed the single query
+            query_emb = embedding_manager.embed_query(query)[0]  # [0] to get the flat list[float]
+
+            # Query Pinecone
+            pinecone_results = index.query(
+                vector=query_emb,
+                top_k=k_value,
+                include_metadata=True,
+                include_values=False,           # no need for vectors
+                namespace=namespace
             )
+
+            # Convert Pinecone format to the same structure Chroma used
+            # So the rest of your code (documents, metadatas, distances) works unchanged
+            matches = pinecone_results.get('matches', [])
+            results = {
+                "documents": [[match['metadata'].get('text', '') for match in matches]],
+                "metadatas": [[match['metadata'] for match in matches]],
+                "distances": [[1 - match['score'] for match in matches]]  # convert similarity → distance
+            }
+
         except Exception as e:
             yield {
                 "type": "error",
-                "content": f"Database connection error: {str(e)}"
+                "content": f"Database query error: {str(e)}"
             }
             return
-    else:
-        yield {
-            "type": "error",
-            "content": "Invalid database object provided."
-        }
-        return
 
     # 3️⃣ Extract documents, metadata, and distances
     documents = results.get("documents", [[]])[0]
