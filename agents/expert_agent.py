@@ -5,14 +5,7 @@ from pydantic_ai import Agent, RunContext
 import shared_utils.agent_query_source_data as rag_agent
 from schemas.agent_schemas import Query
 
-# CHROMA_ENDPOINT = os.environ.get('CHROMA_ENDPOINT')
 ENVIRONMENT = os.environ.get('ENVIRONMENT')
-# CHROMA_SERVER_AUTHN_CREDENTIALS = os.environ.get('CHROMA_SERVER_AUTHN_CREDENTIALS')
-
-# headers = {
-#     'X-Chroma-Token': CHROMA_SERVER_AUTHN_CREDENTIALS,
-#     'Content-Type': 'application/json'
-# }
 
 embedding_manager = rag_agent.OpenAIEmbeddingManager()
 

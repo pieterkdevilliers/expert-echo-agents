@@ -1,7 +1,6 @@
 import os
 import requests
-from typing import List, Dict, Union
-# import chromadb
+from typing import List, Dict
 from util_agents import rephrase_user_query as rephrase_agent
 from openai import OpenAI
 from pydantic_ai import Agent
@@ -11,15 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 CHAT_MODEL_NAME = os.environ.get('OPENAI_CHAT_MODEL')
-# CHROMA_PATH = "chroma"
 ENVIRONMENT = os.environ.get('ENVIRONMENT')
-# CHROMA_ENDPOINT = os.environ.get('CHROMA_ENDPOINT')
-# CHROMA_SERVER_AUTHN_CREDENTIALS = os.environ.get('CHROMA_SERVER_AUTHN_CREDENTIALS')
-
-# headers = {
-#     'X-Chroma-Token': CHROMA_SERVER_AUTHN_CREDENTIALS,
-#     'Content-Type': 'application/json'
-# }
 
 # Initialize OpenAI client directly
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -87,107 +78,6 @@ class OpenAIEmbeddingManager:
 
 
 embedding_manager = OpenAIEmbeddingManager()
-
-
-
-########################################
-# Previously prepare_db
-########################################
-
-# class ChromaDBManager:
-#     def __init__(self, environment: str, chroma_endpoint: str = None, headers: dict = None):
-#         self.environment = environment
-#         self.chroma_endpoint = chroma_endpoint
-#         self.headers = headers or {}
-
-#     def get_or_create_collection(self, account_unique_id: str, embedding_function=None):
-#         """Get or create a collection based on environment"""
-#         if self.environment == "development":
-#             return self._handle_local_collection(account_unique_id, embedding_function)
-#         else:
-#             return self._handle_remote_collection(account_unique_id)
-    
-#     def _handle_local_collection(self, account_unique_id: str, embedding_function):
-#         """Handle local ChromaDB collection"""
-#         chroma_path = f"./chroma/{account_unique_id}"
-#         os.makedirs(chroma_path, exist_ok=True)
-        
-#         client = chromadb.PersistentClient(path=chroma_path)
-#         collection_name = f"collection-{account_unique_id}"
-        
-#         try:
-#             collection = client.get_collection(
-#                 name=collection_name,
-#                 embedding_function=embedding_function
-#             )
-#         except Exception:
-#             collection = client.create_collection(
-#                 name=collection_name,
-#                 embedding_function=embedding_function
-#             )
-#         return collection
-    
-#     def _handle_remote_collection(self, account_unique_id: str):
-#         """Handle remote ChromaDB collection via Render-hosted API"""
-#         collection_name = f"collection-{account_unique_id}"
-
-#         # Step 1: Fetch all collections from remote server
-#         collections_url = f"{self.chroma_endpoint}/collections"
-#         resp = requests.get(collections_url, headers=self.headers)
-#         if resp.status_code != 200:
-#             raise RuntimeError(f"Error fetching collections: {resp.text}")
-#         collections = resp.json()
-
-#         # Step 2: Find the collection ID by name
-#         collection_id = None
-#         for col in collections:
-#             if col["name"] == collection_name:
-#                 collection_id = col["id"]
-#                 break
-
-#         if not collection_id:
-#             # Optionally, create the collection if it doesn't exist
-#             create_url = f"{self.chroma_endpoint}/collections"
-#             payload = {"name": collection_name}
-#             resp = requests.post(create_url, json=payload, headers=self.headers)
-#             resp.raise_for_status()
-#             collection_id = resp.json()["id"]
-
-#         else:
-#             print(f"Found remote collection: {collection_name} (id={collection_id})")
-
-#         # Step 3: Return a dict representing the "collection"
-#         return {
-#             "type": "remote",
-#             "collection_name": collection_name,
-#             "collection_id": collection_id,
-#             "endpoint": self.chroma_endpoint,
-#             "headers": self.headers,
-#             "exists": True,
-#         }
-    
-#     def query_remote_collection(self, collection_dict, queries: List[str], n_results=7, include=None):
-#         """Query a remote collection using embeddings"""
-#         collection_id = collection_dict["collection_id"]
-#         url = f"{collection_dict['endpoint']}/collections/{collection_id}/query"
-        
-#         # Embed the queries
-#         embeddings = embedding_manager.embed_query(queries[0]) if len(queries) == 1 else embedding_manager.embed_documents(queries)
-        
-#         payload = {
-#             "query_embeddings": embeddings,
-#             "n_results": n_results,
-#             "include": include or ["documents", "metadatas", "distances"],
-#             "where": {},  # optional filters
-#             "where_document": {}  # optional filters
-#         }
-        
-#         resp = requests.post(url, json=payload, headers=collection_dict["headers"])
-#         resp.raise_for_status()
-#         print('chroma query response: ', resp.json())
-#         return resp.json()
-
-
 
 ###########################################
 # Previously Search DB
