@@ -1,7 +1,7 @@
 import os
 import requests
 from typing import List, Dict, Union
-import chromadb
+# import chromadb
 from util_agents import rephrase_user_query as rephrase_agent
 from openai import OpenAI
 from pydantic_ai import Agent
@@ -227,7 +227,7 @@ class PineconeDBManager:
 # Modified search_db_advanced to support streaming
 async def search_db_advanced(
     manager,
-    db: Union[chromadb.Collection, Dict], 
+    db: Dict, 
     query: str, 
     relevance_score: float, 
     k_value: int, 
@@ -248,75 +248,56 @@ async def search_db_advanced(
     print('scoreapp text received in search action: ', scoreapp_report_text)
     print('user_products received in search action: ', user_products_prompt)
     
-    # 1️⃣ Local environment
-    if ENVIRONMENT == 'development' and isinstance(db, chromadb.Collection):
-        results = db.query(
-            query_texts=[query],
-            n_results=k_value,
-            include=["metadatas", "documents", "distances"]
+    # 1️⃣ Validate DB handle (from Pinecone manager)
+    if not isinstance(db, dict) or db.get("type") != "remote" or "index" not in db:
+        yield {
+            "type": "error",
+            "content": "Invalid database object provided."
+        }
+        return
+
+    namespace = db["namespace"]
+    index = db["index"]
+
+    # 2️⃣ Embed the query (same as before)
+    query_emb = embedding_manager.embed_query(query)[0]  # [0] since batch of 1 → list[float]
+
+    # 3️⃣ Query Pinecone (replaces Chroma query)
+    try:
+        results = index.query(
+            vector=query_emb,
+            top_k=k_value,
+            include_metadata=True,
+            include_values=False,  # Save bandwidth – don't need vectors back
+            namespace=namespace
         )
-        if not results['documents'][0]:
-            yield {
-                "type": "error",
-                "content": f"Unable to find matching results for: {query}"
-            }
-            return
+    except Exception as e:
+        yield {
+            "type": "error",
+            "content": f"Database query error: {str(e)}"
+        }
+        return
 
-    # 2️⃣ Remote environment
-    elif isinstance(db, dict) and db.get("type") == "remote":
-        try:
-            # Get the Pinecone index and namespace from the db dict
-            index = db["index"]
-            namespace = db["namespace"]
-
-            # Embed the single query
-            query_emb = embedding_manager.embed_query(query)[0]  # [0] to get the flat list[float]
-
-            # Query Pinecone
-            pinecone_results = index.query(
-                vector=query_emb,
-                top_k=k_value,
-                include_metadata=True,
-                include_values=False,           # no need for vectors
-                namespace=namespace
-            )
-
-            # Convert Pinecone format to the same structure Chroma used
-            # So the rest of your code (documents, metadatas, distances) works unchanged
-            matches = pinecone_results.get('matches', [])
-            results = {
-                "documents": [[match['metadata'].get('text', '') for match in matches]],
-                "metadatas": [[match['metadata'] for match in matches]],
-                "distances": [[1 - match['score'] for match in matches]]  # convert similarity → distance
-            }
-
-        except Exception as e:
-            yield {
-                "type": "error",
-                "content": f"Database query error: {str(e)}"
-            }
-            return
-
-    # 3️⃣ Extract documents, metadata, and distances
-    documents = results.get("documents", [[]])[0]
-    metadatas = results.get("metadatas", [[]])[0]
-    distances = results.get("distances", [[]])[0]
-
-    if not documents:
+    # 4️⃣ Extract matches (Pinecone format)
+    matches = results.get('matches', [])
+    if not matches:
         yield {"type": "error", "content": f"Unable to find matching results for: {query}"}
         return
-    if not documents:
-        yield {"type": "error", "content": "No documents to rerank."}
-        return
-    if not query.strip():
-        yield {"type": "error", "content": "Query is empty."}
-        return
 
+    # Extract documents, metadatas, distances
+    # Assume you stored "text" in metadata during ingestion
+    documents = [match['metadata'].get('text', '') for match in matches]
+    metadatas = [match['metadata'] for match in matches]
+    scores = [match['score'] for match in matches]  # Similarity (higher better)
+    distances = [1 - score for score in scores]    # Convert to "distance" (lower better, like Chroma)
 
-    # 4️⃣ Build context from docs
+    # Optional: Filter by relevance_score (e.g., if converted distance > threshold, skip)
+    # Example: filtered = [(doc, meta, dist) for doc, meta, dist in zip(documents, metadatas, distances) if dist <= relevance_score]
+    # But original doesn't use it – add if needed
+
+    # 5️⃣ Build context from docs (same) and Create sorted list of (distance, metadata) pairs to find best sources
     context_text = "\n\n---\n\n".join(doc for doc in documents)
 
-    # 5️⃣ Create sorted list of (distance, metadata) pairs to find best sources
     # Lower distance = more relevant (ChromaDB uses cosine distance where 0 = identical)
     source_ranking = []
     for i, (dist, meta) in enumerate(zip(distances, metadatas)):
@@ -403,35 +384,29 @@ AVAILABLE PRODUCTS AND SERVICES:
 
     # 8️⃣ Stream agent response
     try:
-        # Track what we've already sent
         previous_text = ""
 
-        async with agent.run_stream(
+        # Start the stream (enter context)
+        stream_response = await agent.run_stream(
             query,
             model_settings={"temperature": temperature}
-        ) as response:
-            async for chunk in response.stream_text():
-                # chunk is cumulative text → find only new part
-                new_text = chunk[len(previous_text):]
-                previous_text = chunk
+        )
 
-                if new_text:  # only send if something new appeared
-                    yield {
-                        "type": "chunk",
-                        "content": new_text
-                    }
-        
-        # After streaming completes, send the BEST sources (not just first N)
-        yield {
-            "type": "sources",
-            "content": best_sources
-        }
-        
-        # Then signal completion
-        yield {
-            "type": "done",
-            "content": None
-        }
+        async for chunk in stream_response.stream_text():
+            new_text = chunk[len(previous_text):]
+            previous_text = chunk
+            if new_text:
+                yield {
+                    "type": "chunk",
+                    "content": new_text
+                }
+
+        # Explicitly close / cleanup if needed
+        # (most streaming clients auto-close on exhaustion, but explicit is safer)
+        await stream_response.aclose()  # or stream_response.close() if sync
+
+        yield {"type": "sources", "content": best_sources}
+        yield {"type": "done", "content": None}
 
     except Exception as e:
         yield {
