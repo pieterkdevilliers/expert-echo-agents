@@ -386,30 +386,19 @@ AVAILABLE PRODUCTS AND SERVICES:
     try:
         previous_text = ""
 
-        # Start the stream (enter context)
-        stream_response = await agent.run_stream(
+        async with agent.run_stream(
             query,
             model_settings={"temperature": temperature}
-        )
+        ) as response:
+            async for chunk in response.stream_text():
+                new_text = chunk[len(previous_text):]
+                previous_text = chunk
+                if new_text:
+                    yield {"type": "chunk", "content": new_text}
 
-        async for chunk in stream_response.stream_text():
-            new_text = chunk[len(previous_text):]
-            previous_text = chunk
-            if new_text:
-                yield {
-                    "type": "chunk",
-                    "content": new_text
-                }
-
-        # Explicitly close / cleanup if needed
-        # (most streaming clients auto-close on exhaustion, but explicit is safer)
-        await stream_response.aclose()  # or stream_response.close() if sync
-
+        # Still inside the context → safe
         yield {"type": "sources", "content": best_sources}
         yield {"type": "done", "content": None}
 
     except Exception as e:
-        yield {
-            "type": "error",
-            "content": f"Error generating response: {str(e)}"
-        }
+        yield {"type": "error", "content": f"Error generating response: {str(e)}"}
