@@ -1,7 +1,7 @@
 import os
 import requests
 from typing import List, Dict, Union
-# import chromadb
+import chromadb
 from util_agents import rephrase_user_query as rephrase_agent
 from openai import OpenAI
 from pydantic_ai import Agent
@@ -225,216 +225,216 @@ class PineconeDBManager:
 # Previously Search DB
 ###########################################
 # Modified search_db_advanced to support streaming
-# async def search_db_advanced(
-#     manager,
-#     db: Union[chromadb.Collection, Dict], 
-#     query: str, 
-#     relevance_score: float, 
-#     k_value: int, 
-#     sources_returned: int, 
-#     account_unique_id: str, 
-#     visitor_email: str, 
-#     chat_history=None, 
-#     prompt_text=None, 
-#     temperature=0.2,
-#     scoreapp_report_text={},
-#     user_products_prompt=""
-# ):
-#     """
-#     Streaming version - yields chunks as they come from AI
-#     Returns only the top N most relevant sources based on distance scores
-#     """
-#     print('query received in search action: ', query)
-#     print('scoreapp text received in search action: ', scoreapp_report_text)
-#     print('user_products received in search action: ', user_products_prompt)
+async def search_db_advanced(
+    manager,
+    db: Union[chromadb.Collection, Dict], 
+    query: str, 
+    relevance_score: float, 
+    k_value: int, 
+    sources_returned: int, 
+    account_unique_id: str, 
+    visitor_email: str, 
+    chat_history=None, 
+    prompt_text=None, 
+    temperature=0.2,
+    scoreapp_report_text={},
+    user_products_prompt=""
+):
+    """
+    Streaming version - yields chunks as they come from AI
+    Returns only the top N most relevant sources based on distance scores
+    """
+    print('query received in search action: ', query)
+    print('scoreapp text received in search action: ', scoreapp_report_text)
+    print('user_products received in search action: ', user_products_prompt)
     
-#     # 1️⃣ Local environment
-#     if ENVIRONMENT == 'development' and isinstance(db, chromadb.Collection):
-#         results = db.query(
-#             query_texts=[query],
-#             n_results=k_value,
-#             include=["metadatas", "documents", "distances"]
-#         )
-#         if not results['documents'][0]:
-#             yield {
-#                 "type": "error",
-#                 "content": f"Unable to find matching results for: {query}"
-#             }
-#             return
+    # 1️⃣ Local environment
+    if ENVIRONMENT == 'development' and isinstance(db, chromadb.Collection):
+        results = db.query(
+            query_texts=[query],
+            n_results=k_value,
+            include=["metadatas", "documents", "distances"]
+        )
+        if not results['documents'][0]:
+            yield {
+                "type": "error",
+                "content": f"Unable to find matching results for: {query}"
+            }
+            return
 
-#     # 2️⃣ Remote environment
-#     elif isinstance(db, dict) and db.get("type") == "remote":
-#         try:
-#             # Get the Pinecone index and namespace from the db dict
-#             index = db["index"]
-#             namespace = db["namespace"]
+    # 2️⃣ Remote environment
+    elif isinstance(db, dict) and db.get("type") == "remote":
+        try:
+            # Get the Pinecone index and namespace from the db dict
+            index = db["index"]
+            namespace = db["namespace"]
 
-#             # Embed the single query
-#             query_emb = embedding_manager.embed_query(query)[0]  # [0] to get the flat list[float]
+            # Embed the single query
+            query_emb = embedding_manager.embed_query(query)[0]  # [0] to get the flat list[float]
 
-#             # Query Pinecone
-#             pinecone_results = index.query(
-#                 vector=query_emb,
-#                 top_k=k_value,
-#                 include_metadata=True,
-#                 include_values=False,           # no need for vectors
-#                 namespace=namespace
-#             )
+            # Query Pinecone
+            pinecone_results = index.query(
+                vector=query_emb,
+                top_k=k_value,
+                include_metadata=True,
+                include_values=False,           # no need for vectors
+                namespace=namespace
+            )
 
-#             # Convert Pinecone format to the same structure Chroma used
-#             # So the rest of your code (documents, metadatas, distances) works unchanged
-#             matches = pinecone_results.get('matches', [])
-#             results = {
-#                 "documents": [[match['metadata'].get('text', '') for match in matches]],
-#                 "metadatas": [[match['metadata'] for match in matches]],
-#                 "distances": [[1 - match['score'] for match in matches]]  # convert similarity → distance
-#             }
+            # Convert Pinecone format to the same structure Chroma used
+            # So the rest of your code (documents, metadatas, distances) works unchanged
+            matches = pinecone_results.get('matches', [])
+            results = {
+                "documents": [[match['metadata'].get('text', '') for match in matches]],
+                "metadatas": [[match['metadata'] for match in matches]],
+                "distances": [[1 - match['score'] for match in matches]]  # convert similarity → distance
+            }
 
-#         except Exception as e:
-#             yield {
-#                 "type": "error",
-#                 "content": f"Database query error: {str(e)}"
-#             }
-#             return
+        except Exception as e:
+            yield {
+                "type": "error",
+                "content": f"Database query error: {str(e)}"
+            }
+            return
 
-#     # 3️⃣ Extract documents, metadata, and distances
-#     documents = results.get("documents", [[]])[0]
-#     metadatas = results.get("metadatas", [[]])[0]
-#     distances = results.get("distances", [[]])[0]
+    # 3️⃣ Extract documents, metadata, and distances
+    documents = results.get("documents", [[]])[0]
+    metadatas = results.get("metadatas", [[]])[0]
+    distances = results.get("distances", [[]])[0]
 
-#     if not documents:
-#         yield {"type": "error", "content": f"Unable to find matching results for: {query}"}
-#         return
-#     if not documents:
-#         yield {"type": "error", "content": "No documents to rerank."}
-#         return
-#     if not query.strip():
-#         yield {"type": "error", "content": "Query is empty."}
-#         return
+    if not documents:
+        yield {"type": "error", "content": f"Unable to find matching results for: {query}"}
+        return
+    if not documents:
+        yield {"type": "error", "content": "No documents to rerank."}
+        return
+    if not query.strip():
+        yield {"type": "error", "content": "Query is empty."}
+        return
 
 
-#     # 4️⃣ Build context from docs
-#     context_text = "\n\n---\n\n".join(doc for doc in documents)
+    # 4️⃣ Build context from docs
+    context_text = "\n\n---\n\n".join(doc for doc in documents)
 
-#     # 5️⃣ Create sorted list of (distance, metadata) pairs to find best sources
-#     # Lower distance = more relevant (ChromaDB uses cosine distance where 0 = identical)
-#     source_ranking = []
-#     for i, (dist, meta) in enumerate(zip(distances, metadatas)):
-#         source = meta.get("source", None)
-#         if source:  # Only include if source exists
-#             source_ranking.append({
-#                 "distance": dist,
-#                 "source": source,
-#                 "metadata": meta,
-#                 "index": i
-#             })
-#     # Sort by distance (ascending - lowest distance first)
-#     source_ranking.sort(key=lambda x: x["distance"])
+    # 5️⃣ Create sorted list of (distance, metadata) pairs to find best sources
+    # Lower distance = more relevant (ChromaDB uses cosine distance where 0 = identical)
+    source_ranking = []
+    for i, (dist, meta) in enumerate(zip(distances, metadatas)):
+        source = meta.get("source", None)
+        if source:  # Only include if source exists
+            source_ranking.append({
+                "distance": dist,
+                "source": source,
+                "metadata": meta,
+                "index": i
+            })
+    # Sort by distance (ascending - lowest distance first)
+    source_ranking.sort(key=lambda x: x["distance"])
     
     
-#     # Get top N sources based on sources_returned parameter
-#     best_sources = list(set([item["source"] for item in source_ranking[:sources_returned]]))
-#     print('best_sources: ', best_sources)
+    # Get top N sources based on sources_returned parameter
+    best_sources = list(set([item["source"] for item in source_ranking[:sources_returned]]))
+    print('best_sources: ', best_sources)
     
-#     print(f"Using {k_value} docs for context, returning top {sources_returned} sources")
-#     print(f"Distance scores: {[f'{item['distance']:.4f}' for item in source_ranking[:sources_returned]]}")
-#     print(f"Distance scores - Best Sources: {[f'{item['distance']:.4f}' for item in source_ranking]}")
+    print(f"Using {k_value} docs for context, returning top {sources_returned} sources")
+    print(f"Distance scores: {[f'{item['distance']:.4f}' for item in source_ranking[:sources_returned]]}")
+    print(f"Distance scores - Best Sources: {[f'{item['distance']:.4f}' for item in source_ranking]}")
 
-#     # 6️⃣ Build chat history
-#     history_text = ""
-#     if chat_history:
-#         formatted_messages = []
-#         for msg in chat_history:
-#             sender = msg.get('sender', 'unknown') if isinstance(msg, dict) else getattr(msg, 'sender', 'unknown')
-#             message = msg.get('message', '') if isinstance(msg, dict) else getattr(msg, 'message', '')
-#             role = "User" if sender == "user" else "Assistant"
-#             formatted_messages.append(f"{role}: {message}")
-#         history_text = "\n".join(formatted_messages)
+    # 6️⃣ Build chat history
+    history_text = ""
+    if chat_history:
+        formatted_messages = []
+        for msg in chat_history:
+            sender = msg.get('sender', 'unknown') if isinstance(msg, dict) else getattr(msg, 'sender', 'unknown')
+            message = msg.get('message', '') if isinstance(msg, dict) else getattr(msg, 'message', '')
+            role = "User" if sender == "user" else "Assistant"
+            formatted_messages.append(f"{role}: {message}")
+        history_text = "\n".join(formatted_messages)
 
-#     # 7️⃣ Create AI agent
-#     model = OpenAIChatModel(CHAT_MODEL_NAME)
+    # 7️⃣ Create AI agent
+    model = OpenAIChatModel(CHAT_MODEL_NAME)
     
-#     system_prompt_parts = []
+    system_prompt_parts = []
     
-#     system_prompt_parts.append(prompt_text or """You are an expert analyst for a business, tasked with providing clear, comprehensive, and well-structured answers. Your tone should aim to match the tone of the source material, remaining conversational.
+    system_prompt_parts.append(prompt_text or """You are an expert analyst for a business, tasked with providing clear, comprehensive, and well-structured answers. Your tone should aim to match the tone of the source material, remaining conversational.
 
-# Your primary goal is to synthesize a complete answer from ALL relevant information found in the provided context, including the Chat History. Do not just use the first piece of information you find. If multiple parts of the context are relevant, combine them into a single, coherent response.
+Your primary goal is to synthesize a complete answer from ALL relevant information found in the provided context, including the Chat History. Do not just use the first piece of information you find. If multiple parts of the context are relevant, combine them into a single, coherent response.
 
-# Follow these strict formatting rules:
-# 1. Structure your answer in clear, well-written paragraphs. Do not return a single block of text.
-# 2. Ensure the response is easy to read and logically organized.
+Follow these strict formatting rules:
+1. Structure your answer in clear, well-written paragraphs. Do not return a single block of text.
+2. Ensure the response is easy to read and logically organized.
 
-# Critically, you must adhere to these constraints:
-# - Base your answer ONLY on the information provided below.
-# - Do not mention the words "context", "information provided", or "source documents".
-# - If the information is not in the context to answer the question, you must respond with: 
-#   "I don't have an answer for that right now. Please use the button below to send us an email, and we will get you the information you need."
-# - Do not make up an answer.
-# - Keep reference to the chat history, in order to keep the conversation realistic.""")
+Critically, you must adhere to these constraints:
+- Base your answer ONLY on the information provided below.
+- Do not mention the words "context", "information provided", or "source documents".
+- If the information is not in the context to answer the question, you must respond with: 
+  "I don't have an answer for that right now. Please use the button below to send us an email, and we will get you the information you need."
+- Do not make up an answer.
+- Keep reference to the chat history, in order to keep the conversation realistic.""")
 
-#     if history_text:
-#         system_prompt_parts.append(f"""
-# PREVIOUS CONVERSATION:
-# {history_text}
+    if history_text:
+        system_prompt_parts.append(f"""
+PREVIOUS CONVERSATION:
+{history_text}
 
-# IMPORTANT: Use the conversation history above to maintain context. If the user asks about something mentioned earlier in the conversation (like their name, previous questions, etc.), refer to the history above.""")
+IMPORTANT: Use the conversation history above to maintain context. If the user asks about something mentioned earlier in the conversation (like their name, previous questions, etc.), refer to the history above.""")
 
-#     system_prompt_parts.append(f"""
-# KNOWLEDGE BASE CONTEXT:
-# {context_text}""")
+    system_prompt_parts.append(f"""
+KNOWLEDGE BASE CONTEXT:
+{context_text}""")
 
-#     if scoreapp_report_text and scoreapp_report_text.get('scoreapp_report_text'):
-#         system_prompt_parts.append(f"""
-# SCOREAPP REPORT:
-# {scoreapp_report_text.get('scoreapp_report_text')}""")
+    if scoreapp_report_text and scoreapp_report_text.get('scoreapp_report_text'):
+        system_prompt_parts.append(f"""
+SCOREAPP REPORT:
+{scoreapp_report_text.get('scoreapp_report_text')}""")
 
-#     if user_products_prompt:
-#         system_prompt_parts.append(f"""
-# AVAILABLE PRODUCTS AND SERVICES:
-# {user_products_prompt}""")
+    if user_products_prompt:
+        system_prompt_parts.append(f"""
+AVAILABLE PRODUCTS AND SERVICES:
+{user_products_prompt}""")
 
-#     full_system_prompt = "\n".join(system_prompt_parts)
-#     print('************************full prompt start: ', full_system_prompt, 'full prompt end*********************')
+    full_system_prompt = "\n".join(system_prompt_parts)
+    print('************************full prompt start: ', full_system_prompt, 'full prompt end*********************')
     
-#     agent = Agent(
-#         model=model,
-#         system_prompt=full_system_prompt
-#     )
+    agent = Agent(
+        model=model,
+        system_prompt=full_system_prompt
+    )
 
-#     # 8️⃣ Stream agent response
-#     try:
-#         # Track what we've already sent
-#         previous_text = ""
+    # 8️⃣ Stream agent response
+    try:
+        # Track what we've already sent
+        previous_text = ""
 
-#         async with agent.run_stream(
-#             query,
-#             model_settings={"temperature": temperature}
-#         ) as response:
-#             async for chunk in response.stream_text():
-#                 # chunk is cumulative text → find only new part
-#                 new_text = chunk[len(previous_text):]
-#                 previous_text = chunk
+        async with agent.run_stream(
+            query,
+            model_settings={"temperature": temperature}
+        ) as response:
+            async for chunk in response.stream_text():
+                # chunk is cumulative text → find only new part
+                new_text = chunk[len(previous_text):]
+                previous_text = chunk
 
-#                 if new_text:  # only send if something new appeared
-#                     yield {
-#                         "type": "chunk",
-#                         "content": new_text
-#                     }
+                if new_text:  # only send if something new appeared
+                    yield {
+                        "type": "chunk",
+                        "content": new_text
+                    }
         
-#         # After streaming completes, send the BEST sources (not just first N)
-#         yield {
-#             "type": "sources",
-#             "content": best_sources
-#         }
+        # After streaming completes, send the BEST sources (not just first N)
+        yield {
+            "type": "sources",
+            "content": best_sources
+        }
         
-#         # Then signal completion
-#         yield {
-#             "type": "done",
-#             "content": None
-#         }
+        # Then signal completion
+        yield {
+            "type": "done",
+            "content": None
+        }
 
-#     except Exception as e:
-#         yield {
-#             "type": "error",
-#             "content": f"Error generating response: {str(e)}"
-#         }
+    except Exception as e:
+        yield {
+            "type": "error",
+            "content": f"Error generating response: {str(e)}"
+        }
