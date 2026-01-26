@@ -167,6 +167,7 @@ async def search_db_advanced(
     print('query received in search action: ', query)
     print('scoreapp text received in search action: ', scoreapp_report_text)
     print('user_products received in search action: ', user_products_prompt)
+    print(f'Using temperature: {temperature}')
     
     # 1️⃣ Validate DB handle (from Pinecone manager)
     if not isinstance(db, dict) or db.get("type") != "remote" or "index" not in db:
