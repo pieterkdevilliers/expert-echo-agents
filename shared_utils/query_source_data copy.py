@@ -1,7 +1,7 @@
 import os
 import requests
 from typing import List, Dict, Union
-import chromadb
+# import chromadb
 from util_agents import rephrase_user_query as rephrase_agent
 from openai import OpenAI
 from pydantic_ai import Agent
@@ -11,15 +11,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 CHAT_MODEL_NAME = os.environ.get('OPENAI_CHAT_MODEL')
-CHROMA_PATH = "chroma"
+# CHROMA_PATH = "chroma"
 ENVIRONMENT = os.environ.get('ENVIRONMENT')
-CHROMA_ENDPOINT = os.environ.get('CHROMA_ENDPOINT')
-CHROMA_SERVER_AUTHN_CREDENTIALS = os.environ.get('CHROMA_SERVER_AUTHN_CREDENTIALS')
+# CHROMA_ENDPOINT = os.environ.get('CHROMA_ENDPOINT')
+# CHROMA_SERVER_AUTHN_CREDENTIALS = os.environ.get('CHROMA_SERVER_AUTHN_CREDENTIALS')
 
-headers = {
-    'X-Chroma-Token': CHROMA_SERVER_AUTHN_CREDENTIALS,
-    'Content-Type': 'application/json'
-}
+# headers = {
+#     'X-Chroma-Token': CHROMA_SERVER_AUTHN_CREDENTIALS,
+#     'Content-Type': 'application/json'
+# }
 
 # Initialize OpenAI client directly
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))

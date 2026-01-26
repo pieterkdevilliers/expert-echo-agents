@@ -16,13 +16,13 @@ if os.getenv("LOGFIRE_ENABLED", "false").lower() == "true":
 else:
     logfire.instrument_pydantic_ai()
 
-CHROMA_ENDPOINT = os.environ.get('CHROMA_ENDPOINT')
+# CHROMA_ENDPOINT = os.environ.get('CHROMA_ENDPOINT')
 ENVIRONMENT = os.environ.get('ENVIRONMENT')
-CHROMA_SERVER_AUTHN_CREDENTIALS = os.environ.get('CHROMA_SERVER_AUTHN_CREDENTIALS')
-headers = {
-    'X-Chroma-Token': CHROMA_SERVER_AUTHN_CREDENTIALS,
-    'Content-Type': 'application/json'
-}
+# CHROMA_SERVER_AUTHN_CREDENTIALS = os.environ.get('CHROMA_SERVER_AUTHN_CREDENTIALS')
+# headers = {
+#     'X-Chroma-Token': CHROMA_SERVER_AUTHN_CREDENTIALS,
+#     'Content-Type': 'application/json'
+# }
 
 
 class QueryContext(BaseModel):
