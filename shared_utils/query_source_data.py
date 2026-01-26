@@ -156,7 +156,7 @@ async def search_db_advanced(
     visitor_email: str, 
     chat_history=None, 
     prompt_text=None, 
-    temperature=0.2,
+    temperature=float,
     scoreapp_report_text={},
     user_products_prompt=""
 ):
