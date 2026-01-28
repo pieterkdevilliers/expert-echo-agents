@@ -4,6 +4,7 @@ from schemas.agent_schemas import Query, UserQuery
 import util_agents.rag_query_agent as rag_agent
 # from util_agents.agent_rag_query import execute_rag_agent
 import util_agents.rephrase_user_query as rephrase_agent
+import util_agents.sentiment_agent as sentiment_agent
 from fastapi.responses import StreamingResponse
 from agents.expert_agent import expert_agent
 import json
@@ -33,6 +34,19 @@ async def rephrase_user_query(query: UserQuery, authorized: bool = Depends(auth.
         raise HTTPException(status_code=400, detail="Missing 'query' field")
     
     result = await rephrase_agent.rephrase_user_query(query=query.query)
+
+    return result
+
+
+@router.post("/initial-question-sentiment")
+async def initial_question_sentiment(query: UserQuery, authorized: bool = Depends(auth.verify_api_key)):
+    """
+    Analyzes the sentiment of the initial user query.
+    """
+    if not query.query:
+        raise HTTPException(status_code=400, detail="Missing 'query' field")
+    
+    result = await sentiment_agent.analyze_initial_user_query_sentiment(query=query.query)
 
     return result
 
