@@ -49,7 +49,7 @@ initial_user_query_sentiment_agent = Agent[QueryContext, str](
     instructions='''
     You are an expert at analyzing the sentiment of user queries.
     Return a structured sentiment classification with a concise explanation.
-    
+
     - negative    = predominantly negative (frustration, anger, unresolved complaints)
     - neutral  = neutral / mixed / ongoing inquiry without strong emotion
     - positive  = positive overall (satisfaction, resolution, appreciation)
@@ -99,8 +99,8 @@ async def analyze_conversation_sentiment(chat_history: List[Dict[str, Any]]):
     """
     Analyze the sentiment of the conversation context.
     """
-    formatted = format_conversation_history(chat_history)
-    input_model = ConversationAnalysisInput(conversation_text=formatted)
+    # formatted = format_conversation_history(chat_history)
+    input_model = ConversationAnalysisInput(conversation_text=chat_history)
 
     result = await conversation_sentiment_agent.run(
         input_model,
