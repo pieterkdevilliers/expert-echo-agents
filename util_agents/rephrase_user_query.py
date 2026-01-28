@@ -21,7 +21,7 @@ ENVIRONMENT = os.environ.get('ENVIRONMENT')
 
 class QueryContext(BaseModel):
     """
-    Context for managing a task list.
+    Context for user queries.
     """
     query: str
 
