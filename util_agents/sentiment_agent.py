@@ -1,5 +1,6 @@
 import logfire
 import os
+from typing import List, Dict, Any
 from pydantic_ai import Agent
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -26,7 +27,7 @@ class Conversation(BaseModel):
     """
     Conversation context.
     """
-    history: dict[str, str] = {}
+    history: List[Dict[str, Any]] = []
 
 
 class QuerySentiment(BaseModel):
@@ -36,13 +37,23 @@ class QuerySentiment(BaseModel):
     sentiment: str
     explanation: str
 
+class ConversationAnalysisInput(BaseModel):
+    """
+    Main input for conversation sentiment analysis
+    """
+    conversation_text: str
+
 initial_user_query_sentiment_agent = Agent[QueryContext, str](
     'openai:gpt-4o',
     output_type=QuerySentiment,
     instructions='''
     You are an expert at analyzing the sentiment of user queries.
-    Given a user query, determine its sentiment (e.g., positive, negative, neutral)
-    and provide a brief explanation for your assessment.
+    Return a structured sentiment classification with a concise explanation.
+    
+    - negative    = predominantly negative (frustration, anger, unresolved complaints)
+    - neutral  = neutral / mixed / ongoing inquiry without strong emotion
+    - positive  = positive overall (satisfaction, resolution, appreciation)
+    
     Ensure your analysis is concise and relevant to the query's context.'''
 )
 
@@ -59,25 +70,41 @@ async def analyze_initial_user_query_sentiment(query: str):
     return result.output
 
 
-conversation_sentiment_agent = Agent[QueryContext, str](
+def format_conversation_history(history: List[Dict[str, str]]) -> str:
+    lines = []
+    for msg in history:
+        sender = msg.get('sender', 'unknown').upper()
+        content = msg.get('message', '').strip()
+        lines.append(f"{sender}: {content}")
+    return "\n\n".join(lines)
+
+
+conversation_sentiment_agent = Agent[ConversationAnalysisInput, QuerySentiment](
     'openai:gpt-4o',
     output_type=QuerySentiment,
     instructions='''
-    You are an expert at analyzing the sentiment of user queries.
-    Given a user query, determine its sentiment (e.g., positive, negative, neutral)
-    and provide a brief explanation for your assessment.
-    Ensure your analysis is concise and relevant to the query's context.'''
+    You are an expert at analyzing the overall sentiment of a customer support conversation.
+
+    - negative    = predominantly negative (frustration, anger, unresolved complaints)
+    - neutral  = neutral / mixed / ongoing inquiry without strong emotion
+    - positive  = positive overall (satisfaction, resolution, appreciation)
+
+    Analyze the **entire conversation history** provided.
+    Consider how the tone evolves.
+    Return a structured sentiment classification with a concise explanation.
+    '''
 )
 
-async def analyze_conversation_sentiment(history: dict[str, str]):
+async def analyze_conversation_sentiment(chat_history: List[Dict[str, Any]]):
     """
     Analyze the sentiment of the conversation context.
     """
-    context = Conversation(history=history)
+    formatted = format_conversation_history(chat_history)
+    input_model = ConversationAnalysisInput(conversation_text=formatted)
 
-    print("Conversation History for Sentiment Analysis: ", history)
-
-    result = await conversation_sentiment_agent.run(history, deps=context)
+    result = await conversation_sentiment_agent.run(
+        input_model,
+        deps=None)
 
     print("Sentiment Analysis Result: ", result)
 
