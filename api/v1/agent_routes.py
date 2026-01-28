@@ -59,7 +59,7 @@ async def conversation_sentiment(query: Query, authorized: bool = Depends(auth.v
     if not query.query:
         raise HTTPException(status_code=400, detail="Missing 'query' field")
 
-    result = await sentiment_agent.analyze_conversation_sentiment(history=[query.chat_history])
+    result = await sentiment_agent.analyze_conversation_sentiment(chat_history=[query.chat_history])
 
     return result
 
