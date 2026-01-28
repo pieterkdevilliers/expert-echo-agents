@@ -75,6 +75,8 @@ async def analyze_conversation_sentiment(history: dict[str, str]):
     """
     context = Conversation(history=history)
 
+    print("Conversation History for Sentiment Analysis: ", history)
+
     result = await conversation_sentiment_agent.run(history, deps=context)
 
     print("Sentiment Analysis Result: ", result)
