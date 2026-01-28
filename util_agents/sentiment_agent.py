@@ -65,8 +65,6 @@ async def analyze_initial_user_query_sentiment(query: str):
 
     result = await initial_user_query_sentiment_agent.run(query, deps=context)
 
-    print("Sentiment Analysis Result: ", result)
-
     return result.output
 
 
@@ -109,7 +107,5 @@ async def analyze_conversation_sentiment(chat_history: List[Dict[str, Any]]):
     result = await conversation_sentiment_agent.run(
         formatted_history,
         deps=context)
-
-    print("Sentiment Analysis Result: ", result)
 
     return result.output
