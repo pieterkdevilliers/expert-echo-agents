@@ -80,11 +80,10 @@ def format_conversation_history(history: List[Dict[str, str]]) -> str:
         sender = msg.get('sender', 'unknown').upper()
         content = msg.get('message', '').strip()
         lines.append(f"{sender}: {content}")
-    print("Formatted Conversation History: ", "\n".join(lines))
     return "\n\n".join(lines)
 
 
-conversation_sentiment_agent = Agent[ConversationAnalysisInput, QuerySentiment](
+conversation_sentiment_agent = Agent[ConversationAnalysisInput, str](
     'openai:gpt-4o',
     output_type=QuerySentiment,
     instructions='''
@@ -105,11 +104,11 @@ async def analyze_conversation_sentiment(chat_history: List[Dict[str, Any]]):
     Analyze the sentiment of the conversation context.
     """
     formatted_history = format_conversation_history(chat_history)
-    input_model = ConversationAnalysisInput(conversation_text=formatted_history)
+    context = ConversationAnalysisInput(conversation_text=formatted_history)
 
     result = await conversation_sentiment_agent.run(
-        input_model,
-        deps=None)
+        formatted_history,
+        deps=context)
 
     print("Sentiment Analysis Result: ", result)
 
