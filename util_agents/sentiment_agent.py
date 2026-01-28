@@ -26,7 +26,7 @@ class Conversation(BaseModel):
     """
     Conversation context.
     """
-    history: list[str] = []
+    history: dict[str, str] = {}
 
 
 class QuerySentiment(BaseModel):
