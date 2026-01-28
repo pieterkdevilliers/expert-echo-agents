@@ -69,7 +69,7 @@ conversation_sentiment_agent = Agent[QueryContext, str](
     Ensure your analysis is concise and relevant to the query's context.'''
 )
 
-async def analyze_conversation_sentiment(history: list[str]):
+async def analyze_conversation_sentiment(history: dict[str, str]):
     """
     Analyze the sentiment of the conversation context.
     """
