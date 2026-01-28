@@ -38,7 +38,7 @@ async def rephrase_user_query(query: UserQuery, authorized: bool = Depends(auth.
     return result
 
 
-@router.post("/initial-question-sentiment")
+@router.post("/query/initial-question-sentiment")
 async def initial_question_sentiment(query: UserQuery, authorized: bool = Depends(auth.verify_api_key)):
     """
     Analyzes the sentiment of the initial user query.
