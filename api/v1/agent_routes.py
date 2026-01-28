@@ -51,6 +51,19 @@ async def initial_question_sentiment(query: UserQuery, authorized: bool = Depend
     return result
 
 
+@router.post("/query/conversation-sentiment")
+async def conversation_sentiment(query: Query, authorized: bool = Depends(auth.verify_api_key)):
+    """
+    Analyzes the sentiment of the conversation context.
+    """
+    if not query.query:
+        raise HTTPException(status_code=400, detail="Missing 'query' field")
+
+    result = await sentiment_agent.analyze_conversation_sentiment(history=[query.chat_history])
+
+    return result
+
+
 # @router.post("/agent-query")
 # async def query_agent(query: Query):
 #     """
